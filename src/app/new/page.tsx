@@ -113,7 +113,7 @@ export default function Onboarding() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center gap-2 px-8 py-5 border-b border-border">
         <span style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic' }} className="font-bold text-lg tracking-tight">
-          Libretto
+          Livretto
         </span>
       </header>
 

@@ -107,7 +107,7 @@ function EditorMockup() {
           <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c, opacity: 0.8 }}/>
         ))}
         <div style={{ flex: 1, textAlign: 'center', fontSize: 11, color: C.muted, fontFamily: 'var(--font-geist-sans)' }}>
-          Libretto — O Chamado
+          Livretto — O Chamado
         </div>
       </div>
 
@@ -213,7 +213,7 @@ function Nav() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Mark size={26}/>
         <span style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic', fontSize: 20, color: C.text, letterSpacing: '-0.02em' }}>
-          Libretto
+          Livretto
         </span>
       </div>
 
@@ -634,10 +634,10 @@ function Footer() {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Mark size={18}/>
-        <span style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic', fontSize: 16, color: C.muted }}>Libretto</span>
+        <span style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic', fontSize: 16, color: C.muted }}>Livretto</span>
       </div>
       <div style={{ fontSize: 12, color: C.faint }}>
-        © 2026 Libretto · Feito para escritores
+        © 2026 Livretto · Feito para escritores
       </div>
       <div style={{ display: 'flex', gap: 24, fontSize: 12, color: C.faint }}>
         <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Privacidade</a>

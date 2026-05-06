@@ -121,7 +121,7 @@ export default function BooksPage() {
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
           <Mark/>
           <span style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic', fontSize: 19, color: C.text }}>
-            Libretto
+            Livretto
           </span>
         </Link>
 

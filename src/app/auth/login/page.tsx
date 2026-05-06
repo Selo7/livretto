@@ -115,7 +115,7 @@ function LoginPageContent() {
       <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 36 }}>
         <Mark/>
         <span style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic', fontSize: 22, color: C.text }}>
-          Libretto
+          Livretto
         </span>
       </Link>
 

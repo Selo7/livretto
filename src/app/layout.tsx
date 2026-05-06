@@ -20,7 +20,7 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'Libretto — O editor que pensa no leitor',
+  title: 'Livretto — O editor que pensa no leitor',
   description: 'Editor profissional com preview ao vivo no tamanho real do seu livro. Veja cada página como o leitor vai ver, enquanto você escreve.',
 }
 
