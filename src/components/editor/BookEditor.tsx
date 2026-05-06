@@ -350,7 +350,9 @@ export function BookEditor() {
       if (idx === blockIndex) targetPos = offset + 1
       idx++
     })
-    editor.chain().setTextSelection(targetPos).scrollIntoView().focus().run()
+    editor.commands.focus()
+    editor.commands.setTextSelection(targetPos)
+    editor.view.dispatch(editor.view.state.tr.scrollIntoView())
   }
 
   async function handleTransformToChapter() {

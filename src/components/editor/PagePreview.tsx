@@ -467,12 +467,8 @@ const Pagina = forwardRef<HTMLDivElement, PaginaProps>(function Pagina(
   function handleContentClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!onBlockClick) return
     const container = e.currentTarget
-    let el: Element | null = e.target as Element
-    while (el && el.parentElement !== container) {
-      el = el.parentElement
-    }
-    if (!el || !container.contains(el)) return
-    const idx = Array.from(container.children).indexOf(el as HTMLElement)
+    const children = Array.from(container.children)
+    const idx = children.findIndex(child => child.contains(e.target as Node))
     if (idx >= 0) onBlockClick(startBlock + idx)
   }
   const fnHeight = footnotes.length > 0
