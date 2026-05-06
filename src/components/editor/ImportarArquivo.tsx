@@ -6,8 +6,31 @@ import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
+export interface CapituloImportado { titulo: string; html: string }
+
 interface ImportarArquivoProps {
-  onImportar: (html: string, nomeArquivo: string) => void
+  onImportar: (capitulos: CapituloImportado[]) => void
+}
+
+function splitByH1(html: string, fallbackTitle: string): CapituloImportado[] {
+  const dom = new DOMParser().parseFromString(html, 'text/html')
+  const chunks: CapituloImportado[] = []
+  let titulo = fallbackTitle
+  let buffer = ''
+
+  for (const el of Array.from(dom.body.children)) {
+    if (el.tagName === 'H1') {
+      chunks.push({ titulo, html: buffer })
+      titulo = el.textContent?.trim() || 'Capítulo'
+      buffer = ''
+    } else {
+      buffer += el.outerHTML
+    }
+  }
+  chunks.push({ titulo, html: buffer })
+
+  const result = chunks.filter(c => c.html.trim())
+  return result.length > 0 ? result : [{ titulo: fallbackTitle, html }]
 }
 
 type Estado = 'idle' | 'arrastando' | 'processando' | 'sucesso' | 'erro'
@@ -62,10 +85,17 @@ export function ImportarArquivo({ onImportar }: ImportarArquivoProps) {
 
       if (!html.trim()) throw new Error('O arquivo parece estar vazio.')
 
+      const fallbackTitle = arquivo.name.replace(/\.[^/.]+$/, '')
+      const capitulos = splitByH1(html, fallbackTitle)
+
       setEstado('sucesso')
-      setMensagem(`${arquivo.name} importado com sucesso!`)
+      setMensagem(
+        capitulos.length > 1
+          ? `${capitulos.length} capítulos detectados em ${arquivo.name}`
+          : `${arquivo.name} importado com sucesso!`
+      )
       setTimeout(() => {
-        onImportar(html, arquivo.name.replace(/\.[^/.]+$/, ''))
+        onImportar(capitulos)
         setAberto(false)
         setEstado('idle')
         setMensagem('')

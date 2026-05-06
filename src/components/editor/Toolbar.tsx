@@ -4,11 +4,11 @@ import { type Editor } from '@tiptap/react'
 import {
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   Heading1, Heading2, Heading3, Quote, List, ListOrdered, Mic, MicOff,
-  BookOpen, Scissors,
+  BookOpen, Scissors, Search,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import { ImportarArquivo } from './ImportarArquivo'
+import { ImportarArquivo, CapituloImportado } from './ImportarArquivo'
 import { ImportarAudio } from './ImportarAudio'
 import { AreaLabel } from '@/components/ui/area-label'
 
@@ -16,9 +16,10 @@ interface ToolbarProps {
   editor: Editor | null
   isDictating: boolean
   onToggleDictation: () => void
-  onImportar: (html: string, titulo: string) => void
+  onImportar: (capitulos: CapituloImportado[]) => void
   onTransformToChapter: () => void
   onOpenRodape: () => void
+  onOpenBuscar: () => void
 }
 
 interface BtnProps {
@@ -79,7 +80,7 @@ function run(editor: Editor, fn: (e: Editor) => void) {
   }
 }
 
-export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, onTransformToChapter, onOpenRodape }: ToolbarProps) {
+export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, onTransformToChapter, onOpenRodape, onOpenBuscar }: ToolbarProps) {
   if (!editor) return null
 
   return (
@@ -178,6 +179,14 @@ export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, on
 
       <ImportarArquivo onImportar={onImportar} />
       <ImportarAudio editor={editor} />
+
+      <Separator orientation="vertical" className="h-5 mx-1" />
+
+      <Btn
+        icon={<Search size={14}/>}
+        label="Localizar no texto (Ctrl+F)"
+        onMouseDown={(e) => { e.preventDefault(); onOpenBuscar() }}
+      />
     </div>
   )
 }

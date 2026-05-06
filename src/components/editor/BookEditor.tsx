@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Toolbar } from './Toolbar'
 import { PagePreview } from './PagePreview'
 import { ChapterSidebar } from './ChapterSidebar'
-import { ImportarArquivo } from './ImportarArquivo'
+import { ImportarArquivo, CapituloImportado } from './ImportarArquivo'
 import { AssistenteIA } from './AssistenteIA'
 import { AreaLabel } from '@/components/ui/area-label'
 import { useEditorStore } from '@/lib/store/editorStore'
@@ -19,6 +19,8 @@ import { createClient } from '@/lib/supabase/client'
 import { createChapter as createChapterService, updateChapter as updateChapterService } from '@/lib/services/chapters'
 import { IntercapaCapitulo } from './IntercapaCapitulo'
 import { GerenciadorRodape } from './GerenciadorRodape'
+import { BuscarTexto } from './BuscarTexto'
+import { SearchExtension } from './extensions/SearchExtension'
 import { cn } from '@/lib/utils'
 import { Chapter } from '@/types/book'
 import { getFontById, loadGoogleFont, registerCustomFont } from '@/lib/fonts'
@@ -53,6 +55,7 @@ export function BookEditor() {
   const { activeBook, activeChapter, setActiveChapter, chapters, setChapters, setWordCount, updateChapterContent, isFocusMode, toggleFocusMode } = useEditorStore()
   const [intercapaTarget, setIntercapaTarget] = useState<Chapter | null>(null)
   const [rodapeAberto, setRodapeAberto] = useState(false)
+  const [buscarAberto, setBuscarAberto] = useState(false)
   const [isDictating, setIsDictating] = useState(false)
   const [htmlContent, setHtmlContent] = useState('')
   const [previewWidth, setPreviewWidth] = useState(PREVIEW_DEFAULT)
@@ -93,6 +96,7 @@ export function BookEditor() {
     immediatelyRender: false,
     extensions: [
       StarterKit,
+      SearchExtension,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Image.configure({ inline: false, allowBase64: true }),
       Highlight,
@@ -224,6 +228,12 @@ export function BookEditor() {
         toggleFocusMode()
       }
       if (e.key === 'Escape' && isFocusMode) toggleFocusMode()
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        const target = e.target as HTMLElement
+        if (target.contentEditable !== 'true' && target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') return
+        e.preventDefault()
+        setBuscarAberto(true)
+      }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
@@ -281,8 +291,9 @@ export function BookEditor() {
       if (user) chapter = await createChapterService(base)
     } catch { /* offline or not logged in */ }
 
-    setChapters([...chapters, chapter])
+    setChapters([...useEditorStore.getState().chapters, chapter])
     setActiveChapter(chapter)
+    activeChapterRef.current = chapter
     editor?.commands.clearContent()
     editor?.commands.focus()
   }
@@ -292,29 +303,54 @@ export function BookEditor() {
     editor?.commands.focus()
   }
 
-  async function handleImportar(html: string, titulo: string) {
-    const base: Chapter = {
-      id: crypto.randomUUID(),
-      book_id: activeBook?.id ?? '',
-      title: titulo || 'Rascunho importado',
-      order: chapters.length,
-      content: {},
-      content_html: html,
-      word_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+  async function handleImportar(capitulos: CapituloImportado[]) {
+    if (capitulos.length === 0) return
+
+    let user: { id: string } | null = null
+    try {
+      const res = await supabase.auth.getUser()
+      user = res.data.user
+    } catch { /* offline */ }
+
+    const created: Chapter[] = []
+    for (let i = 0; i < capitulos.length; i++) {
+      const { titulo, html } = capitulos[i]
+      const currentChapters = useEditorStore.getState().chapters
+      const base: Chapter = {
+        id: crypto.randomUUID(),
+        book_id: activeBook?.id ?? '',
+        title: titulo || 'Rascunho importado',
+        order: currentChapters.length + i,
+        content: {},
+        content_html: html,
+        word_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      let chapter = base
+      try {
+        if (user) chapter = await createChapterService({ ...base, content_html: html })
+      } catch { /* offline */ }
+      created.push(chapter)
     }
 
-    let chapter = base
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) chapter = await createChapterService({ ...base, content_html: html })
-    } catch { /* offline or not logged in */ }
-
-    setChapters([...chapters, chapter])
-    setActiveChapter(chapter)
-    editor?.commands.setContent(html)
+    setChapters([...useEditorStore.getState().chapters, ...created])
+    const first = created[0]
+    setActiveChapter(first)
+    activeChapterRef.current = first
+    editor?.commands.setContent(first.content_html ?? '')
     editor?.commands.focus()
+  }
+
+  function handleBlockClick(blockIndex: number) {
+    if (!editor) return
+    let targetPos = 1
+    let idx = 0
+    editor.state.doc.forEach((node, offset) => {
+      if (idx === blockIndex) targetPos = offset + 1
+      idx++
+    })
+    editor.chain().setTextSelection(targetPos).scrollIntoView().focus().run()
   }
 
   async function handleTransformToChapter() {
@@ -388,7 +424,8 @@ export function BookEditor() {
             )}
           </div>
         )}
-        <Toolbar editor={editor} isDictating={isDictating} onToggleDictation={toggleDictation} onImportar={handleImportar} onTransformToChapter={handleTransformToChapter} onOpenRodape={() => setRodapeAberto(true)} />
+        <Toolbar editor={editor} isDictating={isDictating} onToggleDictation={toggleDictation} onImportar={handleImportar} onTransformToChapter={handleTransformToChapter} onOpenRodape={() => setRodapeAberto(true)} onOpenBuscar={() => setBuscarAberto(true)} />
+        <BuscarTexto editor={editor} open={buscarAberto} onClose={() => setBuscarAberto(false)} />
 
         <div className={cn(
           'flex-1 overflow-y-auto px-12 py-10',
@@ -443,7 +480,7 @@ export function BookEditor() {
         </div>
       )}
 
-      <PagePreview content={htmlContent} width={previewWidth} cursorBlockIndex={cursorBlockIndex} />
+      <PagePreview content={htmlContent} width={previewWidth} cursorBlockIndex={cursorBlockIndex} onBlockClick={handleBlockClick} />
 
       {intercapaTarget && (
         <IntercapaCapitulo

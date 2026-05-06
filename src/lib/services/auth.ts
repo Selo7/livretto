@@ -41,6 +41,20 @@ export async function sendMagicLink(email: string, redirectTo?: string) {
   if (error) throw error
 }
 
+export async function sendPasswordReset(email: string) {
+  const supabase = createClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+  })
+  if (error) throw error
+}
+
+export async function updatePassword(newPassword: string) {
+  const supabase = createClient()
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw error
+}
+
 export async function signOut() {
   const supabase = createClient()
   await supabase.auth.signOut()

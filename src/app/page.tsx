@@ -649,6 +649,13 @@ function Footer() {
 
 // ── Page ──────────────────────────────────────────────────
 export default function LandingPage() {
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('code')
+    if (code) {
+      window.location.replace(`/auth/callback?code=${encodeURIComponent(code)}&next=/auth/reset-password`)
+    }
+  }, [])
+
   return (
     <div style={{ background: C.bg, color: C.text, minHeight: '100vh', fontFamily: 'var(--font-geist-sans)' }}>
       <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>

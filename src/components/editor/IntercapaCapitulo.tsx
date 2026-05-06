@@ -75,7 +75,7 @@ export function IntercapaCapitulo({ chapter, children, open: openProp, onClose }
       <span onClick={abrir} className="contents">{children}</span>
 
       {aberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
           <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div>

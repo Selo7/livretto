@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { ConfiguracaoLivro } from './ConfiguracaoLivro'
 import { Chapter } from '@/types/book'
 import { getFontById } from '@/lib/fonts'
+import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
 // Dimensões e margens por formato
@@ -72,13 +73,14 @@ interface PagePreviewProps {
   content: string
   width?: number
   cursorBlockIndex?: number
+  onBlockClick?: (blockIndex: number) => void
 }
 
 // ---------------------------------------------------------------------------
 // Componente principal
 // ---------------------------------------------------------------------------
 
-export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: PagePreviewProps) {
+export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBlockClick }: PagePreviewProps) {
   const {
     activeBook, activeChapter, chapters,
     isFocusMode, isPreviewOpen, togglePreview,
@@ -87,6 +89,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: Page
 
   const fontCss = getFontById(activeBook?.body_font).css
   const [paginas, setPaginas] = useState<PaginaData[]>([])
+  const [modoVisualizacao, setModoVisualizacao] = useState<'capitulo' | 'livro'>('capitulo')
   const medidorRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -102,16 +105,27 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: Page
   const alturaUtil = (dims.height - margins.top - margins.bottom) * scale
   const larguraUtil = (dims.width - margins.left - margins.right) * scale
 
+  const htmlParaPaginar = useMemo(() => {
+    if (modoVisualizacao === 'capitulo' || chapters.length === 0) return content
+    return chapters
+      .map((c, i) => {
+        const html = c.id === activeChapter?.id ? content : (c.content_html || '')
+        const titulo = `<h1>${c.title || 'Sem título'}</h1>`
+        return (i === 0 ? '' : '<hr/>') + titulo + html
+      })
+      .join('')
+  }, [modoVisualizacao, content, chapters, activeChapter?.id])
+
   // ---------------------------------------------------------------------------
   // Paginação com extração de rodapés
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!content || !medidorRef.current) {
+    if (!htmlParaPaginar || !medidorRef.current) {
       setPaginas([{ html: '', startBlock: 0, endBlock: 0, footnotes: [] }])
       return
     }
 
-    const structuredFootnotes = activeChapter?.footnotes ?? []
+    const structuredFootnotes = modoVisualizacao === 'capitulo' ? (activeChapter?.footnotes ?? []) : []
     const footnoteMap = new Map(structuredFootnotes.map(f => [f.num, f.content]))
 
     const medidor = medidorRef.current
@@ -119,7 +133,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: Page
     medidor.style.fontSize = `${11 * scale}px`
     medidor.style.lineHeight = '1.8'
     medidor.style.fontFamily = fontCss
-    medidor.innerHTML = content
+    medidor.innerHTML = htmlParaPaginar
 
     const nos = Array.from(medidor.childNodes)
     const paginasGeradas: PaginaData[] = []
@@ -169,14 +183,14 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: Page
     }
 
     setPaginas(paginasGeradas)
-  }, [content, format, alturaUtil, larguraUtil, scale, fontCss, activeChapter?.footnotes])
+  }, [htmlParaPaginar, format, alturaUtil, larguraUtil, scale, fontCss, modoVisualizacao, activeChapter?.footnotes])
 
-  // Armazena contagem de páginas para cálculo de offset global
+  // Armazena contagem de páginas para cálculo de offset global (só no modo capítulo)
   useEffect(() => {
-    if (activeChapter?.id && paginas.length > 0) {
+    if (modoVisualizacao === 'capitulo' && activeChapter?.id && paginas.length > 0) {
       setChapterPageCount(activeChapter.id, paginas.length)
     }
-  }, [paginas.length, activeChapter?.id, setChapterPageCount])
+  }, [paginas.length, activeChapter?.id, setChapterPageCount, modoVisualizacao])
 
   // ---------------------------------------------------------------------------
   // Numeração global de páginas
@@ -184,31 +198,31 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: Page
   const isNumbered = activeChapter?.numbered !== false
 
   const pageOffset = useMemo(() => {
+    if (modoVisualizacao === 'livro') return 0
     const activeIdx = chapters.findIndex(c => c.id === activeChapter?.id)
     return chapters.slice(0, activeIdx).reduce((sum, c) => {
-      // Capítulos numerados somam só entre si; idem para os não-numerados
       const mesmaTipo = (c.numbered !== false) === isNumbered
       return mesmaTipo ? sum + (chapterPageCounts[c.id] ?? 0) : sum
     }, 0)
-  }, [chapters, activeChapter?.id, isNumbered, chapterPageCounts])
+  }, [chapters, activeChapter?.id, isNumbered, chapterPageCounts, modoVisualizacao])
 
   function displayNum(pageIdx: number): string {
     const n = pageOffset + pageIdx + 1
-    return isNumbered ? String(n) : toRoman(n)
+    return modoVisualizacao === 'livro' ? String(n) : (isNumbered ? String(n) : toRoman(n))
   }
 
   // ---------------------------------------------------------------------------
-  // Scroll automático para página do cursor
+  // Scroll automático para página do cursor (só no modo capítulo)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!isPreviewOpen || paginas.length === 0) return
+    if (!isPreviewOpen || paginas.length === 0 || modoVisualizacao === 'livro') return
     const targetIdx = paginas.findIndex(
       p => cursorBlockIndex >= p.startBlock && cursorBlockIndex <= p.endBlock
     )
     if (targetIdx < 0 || targetIdx === currentPageIdxRef.current) return
     currentPageIdxRef.current = targetIdx
     pageRefs.current[targetIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [cursorBlockIndex, paginas, isPreviewOpen])
+  }, [cursorBlockIndex, paginas, isPreviewOpen, modoVisualizacao])
 
   if (isFocusMode) return null
 
@@ -246,6 +260,26 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: Page
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-foreground">Visualizador</span>
             <AreaLabel>Visualizador</AreaLabel>
+            <div className="flex items-center rounded border border-border overflow-hidden ml-1">
+              <button
+                onClick={() => setModoVisualizacao('capitulo')}
+                className={cn(
+                  'text-[10px] px-2 py-0.5 transition-colors leading-tight',
+                  modoVisualizacao === 'capitulo'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent'
+                )}
+              >Capítulo</button>
+              <button
+                onClick={() => setModoVisualizacao('livro')}
+                className={cn(
+                  'text-[10px] px-2 py-0.5 transition-colors leading-tight border-l border-border',
+                  modoVisualizacao === 'livro'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent'
+                )}
+              >Livro</button>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground mr-1">{dims.label}</span>
@@ -257,7 +291,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: Page
         </div>
 
         <div ref={scrollAreaRef} className="flex-1 overflow-y-auto flex flex-col items-center py-8 px-4 gap-8">
-          {activeChapter?.opening_style && activeChapter.opening_style !== 'nenhum' && (() => {
+          {modoVisualizacao === 'capitulo' && activeChapter?.opening_style && activeChapter.opening_style !== 'nenhum' && (() => {
             const activeIndex = chapters.findIndex(c => c.id === activeChapter.id)
             const chapterNumber = activeChapter.numbered === false
               ? null
@@ -286,6 +320,8 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: Page
               scale={scale}
               fontCss={fontCss}
               footnotes={p.footnotes}
+              startBlock={p.startBlock}
+              onBlockClick={modoVisualizacao === 'capitulo' ? onBlockClick : undefined}
             />
           ))}
 
@@ -307,7 +343,8 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0 }: Page
         <div className="px-4 py-2 border-t border-border bg-background/50 shrink-0 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
             {paginas.length} {paginas.length === 1 ? 'página' : 'páginas'}
-            {pageOffset > 0 && ` · começa na ${isNumbered ? pageOffset + 1 : toRoman(pageOffset + 1)}`}
+            {modoVisualizacao === 'capitulo' && pageOffset > 0 && ` · começa na ${isNumbered ? pageOffset + 1 : toRoman(pageOffset + 1)}`}
+            {modoVisualizacao === 'livro' && ` · livro completo`}
           </span>
           <span className="text-xs text-muted-foreground">{dims.label}</span>
         </div>
@@ -419,12 +456,25 @@ interface PaginaProps {
   scale: number
   fontCss: string
   footnotes: FootnoteEntry[]
+  startBlock?: number
+  onBlockClick?: (blockIndex: number) => void
 }
 
 const Pagina = forwardRef<HTMLDivElement, PaginaProps>(function Pagina(
-  { html, numero, largura, altura, margins, scale, fontCss, footnotes },
+  { html, numero, largura, altura, margins, scale, fontCss, footnotes, startBlock = 0, onBlockClick },
   ref
 ) {
+  function handleContentClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!onBlockClick) return
+    const container = e.currentTarget
+    let el: Element | null = e.target as Element
+    while (el && el.parentElement !== container) {
+      el = el.parentElement
+    }
+    if (!el || !container.contains(el)) return
+    const idx = Array.from(container.children).indexOf(el as HTMLElement)
+    if (idx >= 0) onBlockClick(startBlock + idx)
+  }
   const fnHeight = footnotes.length > 0
     ? (footnotes.length * 13 * scale) + (8 * scale)  // estimativa: ~13px por nota + separador
     : 0
@@ -447,7 +497,9 @@ const Pagina = forwardRef<HTMLDivElement, PaginaProps>(function Pagina(
           fontSize: 11 * scale,
           lineHeight: 1.8,
           color: '#1a1a1a',
+          cursor: onBlockClick ? 'pointer' : undefined,
         }}
+        onClick={handleContentClick}
         dangerouslySetInnerHTML={{
           __html: html || '<p style="color:#bbb;font-style:italic">Seu texto aparecerá aqui...</p>',
         }}

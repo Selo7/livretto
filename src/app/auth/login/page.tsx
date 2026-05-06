@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Mail, Lock, User, Eye, EyeOff } from 'lucide-react'
-import { signInWithEmail, signUpWithEmail, signInWithGoogle, sendMagicLink } from '@/lib/services/auth'
+import { signInWithEmail, signUpWithEmail, signInWithGoogle, sendMagicLink, sendPasswordReset } from '@/lib/services/auth'
 
 const C = {
   bg: '#0a0907', surface: '#141109', card: '#1a1610',
@@ -46,6 +46,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [magicSent, setMagicSent] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -67,6 +68,20 @@ export default function LoginPage() {
       if (msg.includes('Invalid login')) setError('Email ou senha incorretos.')
       else if (msg.includes('already registered')) setError('Este email já está cadastrado. Faça login.')
       else setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleReset() {
+    if (!email) { setError('Preencha o email acima antes de resetar a senha.'); return }
+    setError('')
+    setLoading(true)
+    try {
+      await sendPasswordReset(email)
+      setResetSent(true)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao enviar email de reset.')
     } finally {
       setLoading(false)
     }
@@ -203,6 +218,22 @@ export default function LoginPage() {
                 {loading ? 'Aguarde...' : tab === 'login' ? 'Entrar' : tab === 'cadastro' ? 'Criar conta' : 'Enviar link'}
                 {!loading && <ArrowRight size={14}/>}
               </button>
+
+              {tab === 'login' && resetSent && (
+                <div style={{ background: '#0f2a1a', border: '1px solid #1a5a30', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#6ee7a0', textAlign: 'center' }}>
+                  Email enviado! Verifique sua caixa de entrada.
+                </div>
+              )}
+
+              {tab === 'login' && !resetSent && (
+                <button type="button" onClick={handleReset} disabled={loading}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.faint, fontSize: 12, textAlign: 'right', padding: 0, marginTop: -8 }}
+                  onMouseEnter={e => (e.currentTarget.style.color = C.muted)}
+                  onMouseLeave={e => (e.currentTarget.style.color = C.faint)}
+                >
+                  Esqueci minha senha
+                </button>
+              )}
 
               {tab !== 'magic' && (
                 <>

@@ -129,6 +129,10 @@
   }
 }
 
+/* Busca no editor */
+.search-match  { background: #fde68a; border-radius: 2px; }
+.search-current { background: #f97316; color: #fff; border-radius: 2px; }
+
 /* Tipografia do preview do livro */
 .book-page-content p          { margin-bottom: 0.55em; }
 
