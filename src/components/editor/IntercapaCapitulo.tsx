@@ -126,7 +126,7 @@ export function IntercapaCapitulo({ chapter, children, open: openProp, onClose }
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     {numerado
                       ? 'Aparece como "Capítulo 1", "Capítulo 2"…'
-                      : 'Prefácio, apresentação, notas — sem número'}
+                      : 'Prefácio, apresentação, notas (sem número)'}
                   </p>
                 </div>
                 <div className={cn(

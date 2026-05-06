@@ -235,7 +235,7 @@ export function ConfiguracaoLivro() {
                     {uploadando ? 'Carregando…' : 'Adicionar fonte própria (.ttf, .otf, .woff2)'}
                   </button>
                   <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
-                    Necessário para impressão — o arquivo da fonte é salvo junto ao projeto.
+                    Necessário para impressão. O arquivo da fonte é salvo junto ao projeto.
                   </p>
                   <input
                     ref={inputFonteRef}

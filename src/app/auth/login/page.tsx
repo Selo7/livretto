@@ -275,7 +275,7 @@ function LoginPageContent() {
             onMouseEnter={e => (e.currentTarget.style.color = C.muted)}
             onMouseLeave={e => (e.currentTarget.style.color = C.faint)}
           >
-            Continuar sem conta — dados ficam apenas neste dispositivo
+            Continuar sem conta (dados ficam só neste dispositivo)
           </Link>
         </div>
       </div>

@@ -189,7 +189,7 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-medium mb-1.5 block">
-                  Sinopse <span className="text-muted-foreground font-normal">({sinopse.length} caracteres — mínimo 50)</span>
+                  Sinopse <span className="text-muted-foreground font-normal">({sinopse.length} caracteres, mínimo 50)</span>
                 </label>
                 <textarea
                   value={sinopse}

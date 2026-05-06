@@ -72,7 +72,7 @@ function EditorMockup() {
     'Era uma tarde de novembro quando Maria',
     'encontrou a carta debaixo da porta. A letra',
     'estava borrada pela chuva, mas o nome no',
-    'envelope era inconfundível — o dela.',
+    'envelope era inconfundível, o dela.',
     '',
     'Ela ficou parada no corredor por longos',
     'minutos, com o envelope fechado na mão.',
@@ -83,8 +83,8 @@ function EditorMockup() {
     'quando Maria encontrou a carta',
     'debaixo da porta. A letra estava',
     'borrada pela chuva, mas o nome',
-    'no envelope era inconfundível',
-    '— o dela.',
+    'no envelope era inconfundível,',
+    'o dela.',
     '',
     'Ela ficou parada no corredor',
     'por longos minutos, com o',
@@ -107,7 +107,7 @@ function EditorMockup() {
           <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c, opacity: 0.8 }}/>
         ))}
         <div style={{ flex: 1, textAlign: 'center', fontSize: 11, color: C.muted, fontFamily: 'var(--font-geist-sans)' }}>
-          Livretto — O Chamado
+          Livretto · O Chamado
         </div>
       </div>
 
@@ -291,7 +291,7 @@ function Hero() {
           onMouseEnter={e => { e.currentTarget.style.background = C.accentLight; e.currentTarget.style.boxShadow = `0 0 60px ${C.accentLight}50` }}
           onMouseLeave={e => { e.currentTarget.style.background = C.accent; e.currentTarget.style.boxShadow = `0 0 40px ${C.accent}40` }}
         >
-          Começar agora — é grátis
+          Começar agora, grátis
           <ArrowRight size={15}/>
         </Link>
         <a href="#recursos" style={{
@@ -318,19 +318,19 @@ const FEATURES = [
   {
     tag: 'Preview ao vivo',
     title: 'O leitor já lê enquanto você escreve.',
-    body: 'Veja cada página nas dimensões reais de impressão — margens exatas, tipografia, paginação. Nada de surpresa na gráfica. O que você vê é o que o leitor vai segurar nas mãos.',
+    body: 'Veja cada página nas dimensões reais de impressão: margens exatas, tipografia, paginação. Nada de surpresa na gráfica. O que você vê é o que o leitor vai segurar nas mãos.',
     visual: <PreviewVisual/>,
   },
   {
     tag: 'Intercapas',
     title: 'A abertura que diz: isso é sério.',
-    body: 'Cinco estilos de intercapa por capítulo — simples, com epígrafe, ilustrado, página inteira com imagem. O primeiro impacto antes da primeira palavra do capítulo.',
+    body: 'Cinco estilos de intercapa por capítulo: simples, com epígrafe, ilustrado, página inteira com imagem. O primeiro impacto antes da primeira palavra do capítulo.',
     visual: <IntercapaVisual/>,
   },
   {
     tag: 'Assistente IA',
     title: 'Um assistente que leu o que você escreveu.',
-    body: 'Contexto completo do capítulo. Sugestão de continuação, revisão de trecho, busca de referências bibliográficas. Powered by Claude — tudo sem sair da tela.',
+    body: 'Contexto completo do capítulo. Sugestão de continuação, revisão de trecho, busca de referências bibliográficas. Tudo sem sair da tela.',
     visual: <IAVisual/>,
   },
 ]

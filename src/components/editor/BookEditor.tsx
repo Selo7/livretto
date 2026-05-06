@@ -434,7 +434,7 @@ export function BookEditor() {
         )}>
           {isFocusMode && (
             <p className="text-xs text-muted-foreground text-center mb-6 opacity-50">
-              Modo foco — pressione ESC ou F para sair
+              Modo foco. Pressione ESC ou F para sair
             </p>
           )}
           {!activeChapter && !isFocusMode && (
