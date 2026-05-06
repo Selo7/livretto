@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Plus, ArrowRight, Trash2, Loader2, BookOpen, LogOut } from 'lucide-react'
 import { Book, BookFormat } from '@/types/book'
+import { coverToDataUri } from '@/lib/cover'
 import { fetchBooks, deleteBook } from '@/lib/services/books'
 import { signOut, getUser } from '@/lib/services/auth'
 import { useEditorStore } from '@/lib/store/editorStore'
@@ -43,17 +44,19 @@ function Mark() {
   )
 }
 
-function BookThumbnail({ format }: { format: BookFormat }) {
-  const dim = FORMAT_DIM[format] ?? FORMAT_DIM['14x21']
+function BookThumbnail({ book }: { book: Book }) {
+  const dim = FORMAT_DIM[book.format] ?? FORMAT_DIM['14x21']
+  const src = book.cover_url || coverToDataUri(book.title, book.author)
   return (
     <div style={{
       width: dim.w, height: dim.h,
-      background: 'linear-gradient(135deg, #faf8f0 0%, #f0ece0 100%)',
-      border: '1px solid #d4c9a8',
       borderRadius: 3,
       boxShadow: '3px 3px 8px rgba(0,0,0,0.35), inset -2px 0 4px rgba(0,0,0,0.08)',
       flexShrink: 0,
-    }}/>
+      overflow: 'hidden',
+    }}>
+      <img src={src} alt={book.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}/>
+    </div>
   )
 }
 
@@ -232,7 +235,7 @@ export default function BooksPage() {
                 >
                   {/* Book info row */}
                   <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                    <BookThumbnail format={book.format}/>
+                    <BookThumbnail book={book}/>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{
                         fontFamily: 'var(--font-playfair)',

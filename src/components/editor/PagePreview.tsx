@@ -74,13 +74,14 @@ interface PagePreviewProps {
   width?: number
   cursorBlockIndex?: number
   onBlockClick?: (blockIndex: number) => void
+  onKeyCommand?: (cmd: 'enter' | 'backspace' | 'delete') => void
 }
 
 // ---------------------------------------------------------------------------
 // Componente principal
 // ---------------------------------------------------------------------------
 
-export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBlockClick }: PagePreviewProps) {
+export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBlockClick, onKeyCommand }: PagePreviewProps) {
   const {
     activeBook, activeChapter, chapters,
     isFocusMode, isPreviewOpen, togglePreview,
@@ -93,7 +94,8 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
   const medidorRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
-  const currentPageIdxRef = useRef(-1)
+  const lastScrolledBlockRef = useRef(-1)
+  const activeChapterStartBlockRef = useRef(0)
 
   const format = activeBook?.format ?? '14x21'
   const dims = formatDimensions[format]
@@ -110,7 +112,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
     return chapters
       .map((c, i) => {
         const html = c.id === activeChapter?.id ? content : (c.content_html || '')
-        const titulo = `<h1>${c.title || 'Sem título'}</h1>`
+        const titulo = c.numbered !== false ? `<h1>${c.title || 'Sem título'}</h1>` : ''
         return (i === 0 ? '' : '<hr/>') + titulo + html
       })
       .join('')
@@ -127,6 +129,22 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
 
     const structuredFootnotes = modoVisualizacao === 'capitulo' ? (activeChapter?.footnotes ?? []) : []
     const footnoteMap = new Map(structuredFootnotes.map(f => [f.num, f.content]))
+
+    // Compute global block offset for active chapter (used in "Livro" mode scroll sync)
+    if (modoVisualizacao === 'livro') {
+      let blockCount = 0
+      for (let i = 0; i < chapters.length; i++) {
+        const c = chapters[i]
+        if (i > 0) blockCount++ // HR separator
+        if (c.numbered !== false) blockCount++ // H1 title
+        if (c.id === activeChapter?.id) { activeChapterStartBlockRef.current = blockCount; break }
+        const tmp = document.createElement('div')
+        tmp.innerHTML = c.content_html || ''
+        blockCount += tmp.children.length
+      }
+    } else {
+      activeChapterStartBlockRef.current = 0
+    }
 
     const medidor = medidorRef.current
     medidor.style.width = `${larguraUtil}px`
@@ -215,13 +233,17 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
   // Scroll automático para página do cursor (só no modo capítulo)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!isPreviewOpen || paginas.length === 0 || modoVisualizacao === 'livro') return
+    if (!isPreviewOpen || paginas.length === 0) return
+    if (cursorBlockIndex === lastScrolledBlockRef.current) return
+    lastScrolledBlockRef.current = cursorBlockIndex
+    const globalBlock = modoVisualizacao === 'livro'
+      ? activeChapterStartBlockRef.current + cursorBlockIndex
+      : cursorBlockIndex
     const targetIdx = paginas.findIndex(
-      p => cursorBlockIndex >= p.startBlock && cursorBlockIndex <= p.endBlock
+      p => globalBlock >= p.startBlock && globalBlock <= p.endBlock
     )
-    if (targetIdx < 0 || targetIdx === currentPageIdxRef.current) return
-    currentPageIdxRef.current = targetIdx
-    pageRefs.current[targetIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (targetIdx < 0) return
+    pageRefs.current[targetIdx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [cursorBlockIndex, paginas, isPreviewOpen, modoVisualizacao])
 
   if (isFocusMode) return null
@@ -290,7 +312,18 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
           </div>
         </div>
 
-        <div ref={scrollAreaRef} className="flex-1 overflow-y-auto flex flex-col items-center py-8 px-4 gap-8">
+        <div
+          ref={scrollAreaRef}
+          tabIndex={0}
+          className="flex-1 overflow-y-auto flex flex-col items-center py-8 px-4 gap-8 outline-none"
+          onClick={() => scrollAreaRef.current?.focus()}
+          onKeyDown={(e) => {
+            if (!onKeyCommand) return
+            if (e.key === 'Enter') { e.preventDefault(); onKeyCommand('enter') }
+            else if (e.key === 'Backspace') { e.preventDefault(); onKeyCommand('backspace') }
+            else if (e.key === 'Delete') { e.preventDefault(); onKeyCommand('delete') }
+          }}
+        >
           {modoVisualizacao === 'capitulo' && activeChapter?.opening_style && activeChapter.opening_style !== 'nenhum' && (() => {
             const activeIndex = chapters.findIndex(c => c.id === activeChapter.id)
             const chapterNumber = activeChapter.numbered === false
@@ -321,6 +354,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
               fontCss={fontCss}
               footnotes={p.footnotes}
               startBlock={p.startBlock}
+              activeCursorBlock={cursorBlockIndex}
               onBlockClick={modoVisualizacao === 'capitulo' ? onBlockClick : undefined}
             />
           ))}
@@ -336,6 +370,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
               scale={scale}
               fontCss={fontCss}
               footnotes={[]}
+              activeCursorBlock={cursorBlockIndex}
             />
           )}
         </div>
@@ -369,7 +404,9 @@ interface PaginaAberturaProps {
 function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCss }: PaginaAberturaProps) {
   const { opening_style, opening_image, opening_epigraph, opening_epigraph_author, title } = chapter
   const fs = (n: number) => n * scale
-  const numLabel = chapterNumber !== null ? `Capítulo ${chapterNumber}` : null
+  const numLabel = chapterNumber !== null
+    ? `Capítulo ${chapter.chapter_num?.trim() || chapterNumber}`
+    : null
 
   const baseStyle: React.CSSProperties = {
     width: largura, height: altura, position: 'relative', overflow: 'hidden', flexShrink: 0,
@@ -382,7 +419,7 @@ function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCs
           <div style={{ width: fs(60), height: 1, background: '#c8b89a' }} />
           <div style={{ textAlign: 'center' }}>
             {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.15em', color: '#999', textTransform: 'uppercase', marginBottom: fs(6) }}>{numLabel}</p>}
-            <p style={{ fontSize: fs(16), color: '#1a1a1a', lineHeight: 1.3 }}>{title}</p>
+            {chapterNumber !== null && <p style={{ fontSize: fs(16), color: '#1a1a1a', lineHeight: 1.3 }}>{title}</p>}
           </div>
           <div style={{ width: fs(60), height: 1, background: '#c8b89a' }} />
         </div>
@@ -395,7 +432,7 @@ function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCs
       <div className="shadow-xl rounded-sm" style={{ ...baseStyle, background: '#faf8f0' }}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: `0 ${fs(50)}px`, fontFamily: fontCss }}>
           {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.15em', color: '#999', textTransform: 'uppercase', marginBottom: fs(6) }}>{numLabel}</p>}
-          <p style={{ fontSize: fs(16), color: '#1a1a1a', marginBottom: fs(28) }}>{title}</p>
+          {chapterNumber !== null && <p style={{ fontSize: fs(16), color: '#1a1a1a', marginBottom: fs(28) }}>{title}</p>}
           {opening_epigraph && (
             <div style={{ borderLeft: `2px solid #c8b89a`, paddingLeft: fs(12) }}>
               <p style={{ fontSize: fs(9), color: '#555', fontStyle: 'italic', lineHeight: 1.6, marginBottom: fs(6) }}>&ldquo;{opening_epigraph}&rdquo;</p>
@@ -419,7 +456,7 @@ function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCs
         </div>
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: altura - imgHeight, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: fontCss, gap: fs(4) }}>
           {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.12em', color: '#999', textTransform: 'uppercase' }}>{numLabel}</p>}
-          <p style={{ fontSize: fs(14), color: '#1a1a1a' }}>{title}</p>
+          {chapterNumber !== null && <p style={{ fontSize: fs(14), color: '#1a1a1a' }}>{title}</p>}
         </div>
       </div>
     )
@@ -434,7 +471,7 @@ function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCs
         }
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: `${fs(20)}px ${fs(30)}px`, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)', fontFamily: fontCss }}>
           {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.15em', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', marginBottom: fs(6) }}>{numLabel}</p>}
-          <p style={{ fontSize: fs(16), color: '#fff', lineHeight: 1.2 }}>{title}</p>
+          {chapterNumber !== null && <p style={{ fontSize: fs(16), color: '#fff', lineHeight: 1.2 }}>{title}</p>}
         </div>
       </div>
     )
@@ -449,7 +486,7 @@ function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCs
 
 interface PaginaProps {
   html: string
-  numero: string     // já formatado (árabe ou romano)
+  numero: string
   largura: number
   altura: number
   margins: { top: number; right: number; bottom: number; left: number }
@@ -457,20 +494,43 @@ interface PaginaProps {
   fontCss: string
   footnotes: FootnoteEntry[]
   startBlock?: number
+  activeCursorBlock?: number
   onBlockClick?: (blockIndex: number) => void
 }
 
 const Pagina = forwardRef<HTMLDivElement, PaginaProps>(function Pagina(
-  { html, numero, largura, altura, margins, scale, fontCss, footnotes, startBlock = 0, onBlockClick },
+  { html, numero, largura, altura, margins, scale, fontCss, footnotes, startBlock = 0, activeCursorBlock, onBlockClick },
   ref
 ) {
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el || activeCursorBlock === undefined) return
+    const localIdx = activeCursorBlock - startBlock
+    Array.from(el.children).forEach((child, i) => {
+      const h = child as HTMLElement
+      if (i === localIdx) {
+        h.style.borderLeft = '2px solid rgba(99,102,241,0.35)'
+        h.style.paddingLeft = '5px'
+        h.style.marginLeft = '-7px'
+        h.style.backgroundColor = 'rgba(99,102,241,0.03)'
+      } else {
+        h.style.borderLeft = ''
+        h.style.paddingLeft = ''
+        h.style.marginLeft = ''
+        h.style.backgroundColor = ''
+      }
+    })
+  }, [activeCursorBlock, startBlock, html])
+
   function handleContentClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (!onBlockClick) return
     const container = e.currentTarget
     const children = Array.from(container.children)
     const idx = children.findIndex(child => child.contains(e.target as Node))
-    if (idx >= 0) onBlockClick(startBlock + idx)
+    if (idx >= 0 && onBlockClick) onBlockClick(startBlock + idx)
   }
+
   const fnHeight = footnotes.length > 0
     ? (footnotes.length * 13 * scale) + (8 * scale)  // estimativa: ~13px por nota + separador
     : 0
@@ -483,6 +543,7 @@ const Pagina = forwardRef<HTMLDivElement, PaginaProps>(function Pagina(
     >
       {/* Conteúdo principal */}
       <div
+        ref={contentRef}
         className="book-page-content absolute overflow-hidden"
         style={{
           top: margins.top * scale,
@@ -493,7 +554,7 @@ const Pagina = forwardRef<HTMLDivElement, PaginaProps>(function Pagina(
           fontSize: 11 * scale,
           lineHeight: 1.8,
           color: '#1a1a1a',
-          cursor: onBlockClick ? 'pointer' : undefined,
+          cursor: 'pointer',
         }}
         onClick={handleContentClick}
         dangerouslySetInnerHTML={{

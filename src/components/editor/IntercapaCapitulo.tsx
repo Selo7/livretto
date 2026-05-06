@@ -31,6 +31,7 @@ export function IntercapaCapitulo({ chapter, children, open: openProp, onClose }
   const [epigrafe, setEpigrafe] = useState(chapter.opening_epigraph ?? '')
   const [autorEpigrafe, setAutorEpigrafe] = useState(chapter.opening_epigraph_author ?? '')
   const [numerado, setNumerado] = useState(chapter.numbered !== false)
+  const [chapterNum, setChapterNum] = useState(chapter.chapter_num ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
 
   function abrir(e: React.MouseEvent) {
@@ -40,6 +41,7 @@ export function IntercapaCapitulo({ chapter, children, open: openProp, onClose }
     setEpigrafe(chapter.opening_epigraph ?? '')
     setAutorEpigrafe(chapter.opening_epigraph_author ?? '')
     setNumerado(chapter.numbered !== false)
+    setChapterNum(chapter.chapter_num ?? '')
     setAbertoInterno(true)
   }
 
@@ -55,6 +57,7 @@ export function IntercapaCapitulo({ chapter, children, open: openProp, onClose }
       opening_epigraph: epigrafe || undefined,
       opening_epigraph_author: autorEpigrafe || undefined,
       numbered: numerado,
+      chapter_num: chapterNum.trim() || undefined,
     })
     fechar()
   }
@@ -107,6 +110,21 @@ export function IntercapaCapitulo({ chapter, children, open: openProp, onClose }
                   })}
                 </div>
               </div>
+
+              {numerado && (
+                <div>
+                  <label className="text-xs font-medium mb-1.5 block">Número do capítulo</label>
+                  <input
+                    value={chapterNum}
+                    onChange={(e) => setChapterNum(e.target.value)}
+                    placeholder="Automático"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Deixe em branco para numeração automática pela posição no livro
+                  </p>
+                </div>
+              )}
 
               {/* Numeração */}
               <button

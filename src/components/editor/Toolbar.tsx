@@ -4,7 +4,7 @@ import { type Editor } from '@tiptap/react'
 import {
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   Heading1, Heading2, Heading3, Quote, List, ListOrdered, Mic, MicOff,
-  BookOpen, Scissors, Search,
+  BookOpen, Scissors, Search, ImagePlus,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
@@ -20,6 +20,7 @@ interface ToolbarProps {
   onTransformToChapter: () => void
   onOpenRodape: () => void
   onOpenBuscar: () => void
+  onInsertImage: () => void
 }
 
 interface BtnProps {
@@ -80,7 +81,7 @@ function run(editor: Editor, fn: (e: Editor) => void) {
   }
 }
 
-export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, onTransformToChapter, onOpenRodape, onOpenBuscar }: ToolbarProps) {
+export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, onTransformToChapter, onOpenRodape, onOpenBuscar, onInsertImage }: ToolbarProps) {
   if (!editor) return null
 
   return (
@@ -156,6 +157,13 @@ export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, on
       <TextBtn
         label="¹ Nota"
         onMouseDown={(e) => { e.preventDefault(); onOpenRodape() }}
+      />
+
+      {/* Inserir imagem */}
+      <Btn
+        icon={<ImagePlus size={14}/>}
+        label="Inserir imagem"
+        onMouseDown={(e) => { e.preventDefault(); onInsertImage() }}
       />
 
       <Separator orientation="vertical" className="h-5 mx-1" />

@@ -64,6 +64,7 @@ export interface Chapter {
   opening_epigraph?: string
   opening_epigraph_author?: string
   numbered?: boolean
+  chapter_num?: string  // número exibido na intercapa; vazio = automático
   footnotes?: ChapterFootnote[]
   created_at: string
   updated_at: string

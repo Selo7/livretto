@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useEditorStore } from '@/lib/store/editorStore'
 import { BookFormat } from '@/types/book'
 import { BOOK_FONTS, loadAllBookFonts, registerCustomFont } from '@/lib/fonts'
+import { coverToDataUri } from '@/lib/cover'
 import { cn } from '@/lib/utils'
 
 const FORMATOS: { id: BookFormat; nome: string; dimensoes: string; proporcao: { w: number; h: number } }[] = [
@@ -27,7 +28,9 @@ export function ConfiguracaoLivro() {
     activeBook?.custom_fonts ?? []
   )
   const [uploadando, setUploadando] = useState(false)
+  const [coverUrl, setCoverUrl] = useState(activeBook?.cover_url ?? '')
   const inputFonteRef = useRef<HTMLInputElement>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
 
   function abrir() {
     setFormatoTemp(activeBook?.format ?? '14x21')
@@ -35,6 +38,7 @@ export function ConfiguracaoLivro() {
     setAutor(activeBook?.author ?? '')
     setFonteTemp(activeBook?.body_font ?? 'Georgia')
     setCustomFonts(activeBook?.custom_fonts ?? [])
+    setCoverUrl(activeBook?.cover_url ?? '')
     loadAllBookFonts()
     setAberto(true)
   }
@@ -46,8 +50,31 @@ export function ConfiguracaoLivro() {
       author: autor.trim() || activeBook?.author,
       body_font: fonteTemp,
       custom_fonts: customFonts,
+      cover_url: coverUrl || undefined,
     })
     setAberto(false)
+  }
+
+  function handleUploadCover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { alert('Apenas imagens são aceitas'); return }
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const MAX_W = 600, MAX_H = 900
+        const ratio = Math.min(MAX_W / img.width, MAX_H / img.height, 1)
+        canvas.width = Math.round(img.width * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height)
+        setCoverUrl(canvas.toDataURL('image/jpeg', 0.82))
+      }
+      img.src = ev.target?.result as string
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
   }
 
   async function handleUploadFonte(e: React.ChangeEvent<HTMLInputElement>) {
@@ -105,6 +132,44 @@ export function ConfiguracaoLivro() {
             </div>
 
             <div className="p-5 space-y-6 overflow-y-auto">
+              {/* Capa */}
+              <div>
+                <label className="text-xs font-medium mb-2 block">Capa do livro</label>
+                <div className="flex gap-4 items-start">
+                  <div style={{ width: 60, height: 90, borderRadius: 4, overflow: 'hidden', flexShrink: 0, boxShadow: '3px 3px 10px rgba(0,0,0,0.25)' }}>
+                    <img
+                      src={coverUrl || coverToDataUri(titulo || activeBook?.title || '', autor || activeBook?.author || '')}
+                      alt="Capa"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => coverInputRef.current?.click()}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-border text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+                    >
+                      <Upload size={12}/>
+                      {coverUrl ? 'Trocar imagem' : 'Enviar imagem de capa'}
+                    </button>
+                    {coverUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setCoverUrl('')}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <X size={12}/>
+                        Usar capa gerada
+                      </button>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">
+                      {coverUrl ? 'Imagem personalizada ativa.' : 'Capa gerada automaticamente pelo título.'}
+                    </p>
+                  </div>
+                </div>
+                <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadCover}/>
+              </div>
+
               {/* Título e Autor */}
               <div className="grid grid-cols-2 gap-3">
                 <div>

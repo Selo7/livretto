@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
-import Image from '@tiptap/extension-image'
+import { ResizableImage } from './extensions/ResizableImage'
 import Highlight from '@tiptap/extension-highlight'
 import CharacterCount from '@tiptap/extension-character-count'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -62,6 +62,7 @@ export function BookEditor() {
   const [cursorBlockIndex, setCursorBlockIndex] = useState(0)
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const activeChapterRef = useRef(activeChapter)
   const supabase = useMemo(() => createClient(), [])
   const dragRef = useRef<{ dragging: boolean; startX: number; startWidth: number }>({
@@ -98,7 +99,7 @@ export function BookEditor() {
       StarterKit,
       SearchExtension,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Image.configure({ inline: false, allowBase64: true }),
+      ResizableImage,
       Highlight,
       CharacterCount,
       Placeholder.configure({
@@ -121,17 +122,14 @@ export function BookEditor() {
         const reader = new FileReader()
         reader.onload = (e) => {
           const src = e.target?.result as string
-
-          // Mede a largura natural da imagem e limita à coluna do editor
           const img = new window.Image()
           img.onload = () => {
             const colunaEl = view.dom.closest('.max-w-2xl') as HTMLElement | null
             const larguraColuna = colunaEl?.offsetWidth ?? 672
-            const largura = Math.min(img.naturalWidth, larguraColuna)
-
+            const width = Math.min(img.naturalWidth, larguraColuna)
             view.dispatch(
               view.state.tr.replaceSelectionWith(
-                view.state.schema.nodes.image.create({ src, width: largura })
+                view.state.schema.nodes.image.create({ src, width })
               )
             )
           }
@@ -350,9 +348,16 @@ export function BookEditor() {
       if (idx === blockIndex) targetPos = offset + 1
       idx++
     })
-    editor.commands.focus()
+    // Posiciona cursor sem roubar foco do browser (visualizador fica focado para comandos de teclado)
     editor.commands.setTextSelection(targetPos)
     editor.view.dispatch(editor.view.state.tr.scrollIntoView())
+  }
+
+  function handleKeyCommand(cmd: 'enter' | 'backspace' | 'delete') {
+    if (!editor) return
+    if (cmd === 'enter') editor.commands.splitBlock()
+    else if (cmd === 'backspace') editor.commands.joinBackward()
+    else if (cmd === 'delete') editor.commands.joinForward()
   }
 
   async function handleTransformToChapter() {
@@ -409,6 +414,29 @@ export function BookEditor() {
     } catch { /* offline */ }
   }
 
+  function handleInsertImage() {
+    imageInputRef.current?.click()
+  }
+
+  function handleImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !editor) return
+    e.target.value = ''
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const src = ev.target?.result as string
+      const img = new window.Image()
+      img.onload = () => {
+        const colunaEl = editor.view.dom.closest('.max-w-2xl') as HTMLElement | null
+        const larguraColuna = colunaEl?.offsetWidth ?? 672
+        const width = Math.min(img.naturalWidth, larguraColuna)
+        editor.chain().focus().setResizableImage({ src, width }).run()
+      }
+      img.src = src
+    }
+    reader.readAsDataURL(file)
+  }
+
   return (
     <div className={cn('flex flex-1 overflow-hidden', isFocusMode && 'fixed inset-0 z-50 bg-background')}>
       <ChapterSidebar onAddChapter={handleAddChapter} onSelectChapter={handleSelectChapter} />
@@ -426,7 +454,8 @@ export function BookEditor() {
             )}
           </div>
         )}
-        <Toolbar editor={editor} isDictating={isDictating} onToggleDictation={toggleDictation} onImportar={handleImportar} onTransformToChapter={handleTransformToChapter} onOpenRodape={() => setRodapeAberto(true)} onOpenBuscar={() => setBuscarAberto(true)} />
+        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageFileChange} />
+        <Toolbar editor={editor} isDictating={isDictating} onToggleDictation={toggleDictation} onImportar={handleImportar} onTransformToChapter={handleTransformToChapter} onOpenRodape={() => setRodapeAberto(true)} onOpenBuscar={() => setBuscarAberto(true)} onInsertImage={handleInsertImage} />
         <BuscarTexto editor={editor} open={buscarAberto} onClose={() => setBuscarAberto(false)} />
 
         <div className={cn(
@@ -482,7 +511,7 @@ export function BookEditor() {
         </div>
       )}
 
-      <PagePreview content={htmlContent} width={previewWidth} cursorBlockIndex={cursorBlockIndex} onBlockClick={handleBlockClick} />
+      <PagePreview content={htmlContent} width={previewWidth} cursorBlockIndex={cursorBlockIndex} onBlockClick={handleBlockClick} onKeyCommand={handleKeyCommand} />
 
       {intercapaTarget && (
         <IntercapaCapitulo

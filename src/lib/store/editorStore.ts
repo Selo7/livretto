@@ -22,7 +22,7 @@ interface EditorState {
   updateChapterTitle: (id: string, title: string) => void
   updateChapterContent: (id: string, content: object, contentHtml: string, wordCount: number) => void
   removeChapter: (id: string) => void
-  updateChapterOpening: (id: string, patch: Partial<Pick<Chapter, 'opening_style' | 'opening_image' | 'opening_epigraph' | 'opening_epigraph_author' | 'numbered'>>) => void
+  updateChapterOpening: (id: string, patch: Partial<Pick<Chapter, 'opening_style' | 'opening_image' | 'opening_epigraph' | 'opening_epigraph_author' | 'numbered' | 'chapter_num'>>) => void
   setChapterPageCount: (id: string, count: number) => void
   // Notas de rodapé
   addChapterFootnote: (chapterId: string, content: string) => number
