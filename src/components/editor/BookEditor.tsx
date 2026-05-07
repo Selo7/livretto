@@ -63,6 +63,7 @@ export function BookEditor() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const editorScrollRef = useRef<HTMLDivElement>(null)
   const activeChapterRef = useRef(activeChapter)
   const supabase = useMemo(() => createClient(), [])
   const dragRef = useRef<{ dragging: boolean; startX: number; startWidth: number }>({
@@ -215,6 +216,11 @@ export function BookEditor() {
       editor.commands.clearContent()
       setHtmlContent('')
     }
+    // Delay so TipTap's own post-setContent scroll doesn't override ours
+    requestAnimationFrame(() => {
+      editor.commands.focus('start')
+      if (editorScrollRef.current) editorScrollRef.current.scrollTop = 0
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChapter?.id, editor])
 
@@ -298,7 +304,6 @@ export function BookEditor() {
 
   function handleSelectChapter(chapter: Chapter) {
     setActiveChapter(chapter)
-    editor?.commands.focus()
   }
 
   async function handleImportar(capitulos: CapituloImportado[]) {
@@ -458,7 +463,7 @@ export function BookEditor() {
         <Toolbar editor={editor} isDictating={isDictating} onToggleDictation={toggleDictation} onImportar={handleImportar} onTransformToChapter={handleTransformToChapter} onOpenRodape={() => setRodapeAberto(true)} onOpenBuscar={() => setBuscarAberto(true)} onInsertImage={handleInsertImage} />
         <BuscarTexto editor={editor} open={buscarAberto} onClose={() => setBuscarAberto(false)} />
 
-        <div className={cn(
+        <div ref={editorScrollRef} className={cn(
           'flex-1 overflow-y-auto px-12 py-10',
           isFocusMode && 'px-24 py-16',
           'bg-background'

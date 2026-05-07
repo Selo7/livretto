@@ -16,11 +16,12 @@ interface GerenciadorRodapeProps {
 }
 
 export function GerenciadorRodape({ editor, open, onClose }: GerenciadorRodapeProps) {
-  const { activeChapter, addChapterFootnote, updateChapterFootnote, removeChapterFootnote } = useEditorStore()
+  const { activeChapter, chapters, addChapterFootnote, updateChapterFootnote, removeChapterFootnote } = useEditorStore()
   const supabase = useMemo(() => createClient(), [])
 
   const footnotes = activeChapter?.footnotes ?? []
-  const proxNum = footnotes.length > 0 ? Math.max(...footnotes.map(f => f.num)) + 1 : 1
+  const allNums = chapters.flatMap(c => (c.footnotes ?? []).map(f => f.num))
+  const proxNum = allNums.length > 0 ? Math.max(...allNums) + 1 : 1
 
   const [novoConteudo, setNovoConteudo] = useState('')
   const [editandoNum, setEditandoNum] = useState<number | null>(null)

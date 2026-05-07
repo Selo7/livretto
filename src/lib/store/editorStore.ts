@@ -103,8 +103,9 @@ export const useEditorStore = create<EditorState>()(
       })),
 
       addChapterFootnote: (chapterId, content) => {
+        const allNums = get().chapters.flatMap(c => (c.footnotes ?? []).map(f => f.num))
+        const newNum = allNums.length > 0 ? Math.max(...allNums) + 1 : 1
         const existing = get().chapters.find(c => c.id === chapterId)?.footnotes ?? []
-        const newNum = existing.length > 0 ? Math.max(...existing.map(f => f.num)) + 1 : 1
         const updated = [...existing, { num: newNum, content }]
         set((s) => applyFootnotes(s.chapters, s.activeChapter, chapterId, updated))
         return newNum

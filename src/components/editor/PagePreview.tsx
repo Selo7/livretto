@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { ConfiguracaoLivro } from './ConfiguracaoLivro'
 import { Chapter } from '@/types/book'
 import { getFontById } from '@/lib/fonts'
-import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
 // Dimensões e margens por formato
@@ -46,18 +45,6 @@ function findCitations(html: string): number[] {
   return [...new Set(nums)].sort((a, b) => a - b)
 }
 
-/** Converte número em algarismos romanos minúsculos (para capítulos não numerados). */
-function toRoman(n: number): string {
-  if (n <= 0) return ''
-  const vals = [1000,900,500,400,100,90,50,40,10,9,5,4,1]
-  const syms = ['M','CM','D','CD','C','XC','L','XL','X','IX','V','IV','I']
-  let r = ''
-  for (let i = 0; i < vals.length; i++) {
-    while (n >= vals[i]) { r += syms[i]; n -= vals[i] }
-  }
-  return r.toLowerCase()
-}
-
 // ---------------------------------------------------------------------------
 // Tipos
 // ---------------------------------------------------------------------------
@@ -86,12 +73,10 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
   const {
     activeBook, activeChapter, chapters,
     isFocusMode, isPreviewOpen, togglePreview,
-    chapterPageCounts, setChapterPageCount,
   } = useEditorStore()
 
   const fontCss = getFontById(activeBook?.body_font).css
   const [paginas, setPaginas] = useState<PaginaData[]>([])
-  const [modoVisualizacao, setModoVisualizacao] = useState<'capitulo' | 'livro'>('capitulo')
   const medidorRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -109,14 +94,14 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
   const larguraUtil = (dims.width - margins.left - margins.right) * scale
 
   const htmlParaPaginar = useMemo(() => {
-    if (modoVisualizacao === 'capitulo' || chapters.length === 0) return content
+    if (chapters.length === 0) return content
     return chapters
       .map((c, i) => {
         const html = c.id === activeChapter?.id ? content : (c.content_html || '')
         return (i === 0 ? '' : '<hr/>') + html
       })
       .join('')
-  }, [modoVisualizacao, content, chapters, activeChapter?.id])
+  }, [content, chapters, activeChapter?.id])
 
   // ---------------------------------------------------------------------------
   // Paginação com extração de rodapés
@@ -127,22 +112,18 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
       return
     }
 
-    const structuredFootnotes = modoVisualizacao === 'capitulo' ? (activeChapter?.footnotes ?? []) : []
+    const structuredFootnotes = chapters.flatMap(c => c.footnotes ?? [])
     const footnoteMap = new Map(structuredFootnotes.map(f => [f.num, f.content]))
 
-    // Compute global block offset for active chapter (used in "Livro" mode scroll sync)
-    if (modoVisualizacao === 'livro') {
-      let blockCount = 0
-      for (let i = 0; i < chapters.length; i++) {
-        const c = chapters[i]
-        if (i > 0) blockCount++ // HR separator
-        if (c.id === activeChapter?.id) { activeChapterStartBlockRef.current = blockCount; break }
-        const tmp = document.createElement('div')
-        tmp.innerHTML = c.content_html || ''
-        blockCount += tmp.children.length
-      }
-    } else {
-      activeChapterStartBlockRef.current = 0
+    // Compute global block offset for active chapter (for scroll sync)
+    let blockCount = 0
+    for (let i = 0; i < chapters.length; i++) {
+      const c = chapters[i]
+      if (i > 0) blockCount++ // HR separator
+      if (c.id === activeChapter?.id) { activeChapterStartBlockRef.current = blockCount; break }
+      const tmp = document.createElement('div')
+      tmp.innerHTML = c.content_html || ''
+      blockCount += tmp.children.length
     }
 
     const medidor = medidorRef.current
@@ -159,6 +140,9 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
     let blockNum = 0
     let startBlock = 0
     let chapterIdx = 0
+    let lastElHtml = ''
+    let lastElHeight = 0
+    let lastElTag = ''
 
     const finalizarPagina = (html: string, start: number, end: number) => {
       const cits = findCitations(html)
@@ -179,19 +163,36 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
         blockNum++
         startBlock = blockNum
         chapterIdx++
+        lastElHtml = ''
+        lastElHeight = 0
+        lastElTag = ''
         continue
       }
 
       const alturaEl = el.offsetHeight + 16
 
       if (alturaAcumulada + alturaEl > alturaUtil && htmlAtual) {
-        finalizarPagina(htmlAtual, startBlock, blockNum - 1)
-        htmlAtual = el.outerHTML
-        alturaAcumulada = alturaEl
-        startBlock = blockNum
+        // If the last element on this page is a heading, pull it to the next page
+        if (/^H[1-3]$/.test(lastElTag) && htmlAtual.length > lastElHtml.length) {
+          finalizarPagina(htmlAtual.slice(0, -lastElHtml.length), startBlock, blockNum - 2)
+          htmlAtual = lastElHtml + el.outerHTML
+          alturaAcumulada = lastElHeight + alturaEl
+          startBlock = blockNum - 1
+        } else {
+          finalizarPagina(htmlAtual, startBlock, blockNum - 1)
+          htmlAtual = el.outerHTML
+          alturaAcumulada = alturaEl
+          startBlock = blockNum
+        }
+        lastElHtml = el.outerHTML
+        lastElHeight = alturaEl
+        lastElTag = el.tagName
       } else {
         htmlAtual += el.outerHTML
         alturaAcumulada += alturaEl
+        lastElHtml = el.outerHTML
+        lastElHeight = alturaEl
+        lastElTag = el.tagName
       }
       blockNum++
     }
@@ -202,50 +203,29 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
     }
 
     setPaginas(paginasGeradas)
-  }, [htmlParaPaginar, format, alturaUtil, larguraUtil, scale, fontCss, modoVisualizacao, activeChapter?.footnotes])
-
-  // Armazena contagem de páginas para cálculo de offset global (só no modo capítulo)
-  useEffect(() => {
-    if (modoVisualizacao === 'capitulo' && activeChapter?.id && paginas.length > 0) {
-      setChapterPageCount(activeChapter.id, paginas.length)
-    }
-  }, [paginas.length, activeChapter?.id, setChapterPageCount, modoVisualizacao])
+  }, [htmlParaPaginar, format, alturaUtil, larguraUtil, scale, fontCss, activeChapter?.footnotes, chapters])
 
   // ---------------------------------------------------------------------------
   // Numeração global de páginas
   // ---------------------------------------------------------------------------
-  const isNumbered = activeChapter?.numbered !== false
-
-  const pageOffset = useMemo(() => {
-    if (modoVisualizacao === 'livro') return 0
-    const activeIdx = chapters.findIndex(c => c.id === activeChapter?.id)
-    return chapters.slice(0, activeIdx).reduce((sum, c) => {
-      const mesmaTipo = (c.numbered !== false) === isNumbered
-      return mesmaTipo ? sum + (chapterPageCounts[c.id] ?? 0) : sum
-    }, 0)
-  }, [chapters, activeChapter?.id, isNumbered, chapterPageCounts, modoVisualizacao])
-
   function displayNum(pageIdx: number): string {
-    const n = pageOffset + pageIdx + 1
-    return modoVisualizacao === 'livro' ? String(n) : (isNumbered ? String(n) : toRoman(n))
+    return String(pageIdx + 1)
   }
 
   // ---------------------------------------------------------------------------
-  // Scroll automático para página do cursor (só no modo capítulo)
+  // Scroll automático para página do cursor
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!isPreviewOpen || paginas.length === 0) return
     if (cursorBlockIndex === lastScrolledBlockRef.current) return
     lastScrolledBlockRef.current = cursorBlockIndex
-    const globalBlock = modoVisualizacao === 'livro'
-      ? activeChapterStartBlockRef.current + cursorBlockIndex
-      : cursorBlockIndex
+    const globalBlock = activeChapterStartBlockRef.current + cursorBlockIndex
     const targetIdx = paginas.findIndex(
       p => globalBlock >= p.startBlock && globalBlock <= p.endBlock
     )
     if (targetIdx < 0) return
     pageRefs.current[targetIdx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [cursorBlockIndex, paginas, isPreviewOpen, modoVisualizacao])
+  }, [cursorBlockIndex, paginas, isPreviewOpen])
 
   if (isFocusMode) return null
 
@@ -283,26 +263,6 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-foreground">Visualizador</span>
             <AreaLabel>Visualizador</AreaLabel>
-            <div className="flex items-center rounded border border-border overflow-hidden ml-1">
-              <button
-                onClick={() => setModoVisualizacao('capitulo')}
-                className={cn(
-                  'text-[10px] px-2 py-0.5 transition-colors leading-tight',
-                  modoVisualizacao === 'capitulo'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent'
-                )}
-              >Capítulo</button>
-              <button
-                onClick={() => setModoVisualizacao('livro')}
-                className={cn(
-                  'text-[10px] px-2 py-0.5 transition-colors leading-tight border-l border-border',
-                  modoVisualizacao === 'livro'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent'
-                )}
-              >Livro</button>
-            </div>
           </div>
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground mr-1">{dims.label}</span>
@@ -325,22 +285,12 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
             else if (e.key === 'Delete') { e.preventDefault(); onKeyCommand('delete') }
           }}
         >
-          {modoVisualizacao === 'capitulo' && activeChapter?.opening_style && activeChapter.opening_style !== 'nenhum' && (
-            <PaginaAbertura
-              chapter={activeChapter}
-              largura={larguraPagina}
-              altura={alturaPagina}
-              scale={scale}
-              fontCss={fontCss}
-            />
-          )}
-
           {paginas.map((p, i) => {
             const isFirstOfChapter = i === 0 || paginas[i - 1].chapterIdx !== p.chapterIdx
-            const chapterForOpening = modoVisualizacao === 'livro' ? chapters[p.chapterIdx] : null
+            const chapterForOpening = chapters[p.chapterIdx]
             return (
               <Fragment key={i}>
-                {modoVisualizacao === 'livro' && isFirstOfChapter && chapterForOpening?.opening_style && chapterForOpening.opening_style !== 'nenhum' && (
+                {isFirstOfChapter && chapterForOpening?.opening_style && chapterForOpening.opening_style !== 'nenhum' && (
                   <PaginaAbertura
                     chapter={chapterForOpening}
                     largura={larguraPagina}
@@ -361,7 +311,6 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
                   footnotes={p.footnotes}
                   startBlock={p.startBlock}
                   activeCursorBlock={cursorBlockIndex}
-                  onBlockClick={modoVisualizacao === 'capitulo' ? onBlockClick : undefined}
                 />
               </Fragment>
             )
@@ -385,9 +334,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
 
         <div className="px-4 py-2 border-t border-border bg-background/50 shrink-0 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            {paginas.length} {paginas.length === 1 ? 'página' : 'páginas'}
-            {modoVisualizacao === 'capitulo' && pageOffset > 0 && ` · começa na ${isNumbered ? pageOffset + 1 : toRoman(pageOffset + 1)}`}
-            {modoVisualizacao === 'livro' && ` · livro completo`}
+            {paginas.length} {paginas.length === 1 ? 'página' : 'páginas'} · livro completo
           </span>
           <span className="text-xs text-muted-foreground">{dims.label}</span>
         </div>
