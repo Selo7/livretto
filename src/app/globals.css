@@ -134,7 +134,7 @@
 .search-current { background: #f97316; color: #fff; border-radius: 2px; }
 
 /* Tipografia do preview do livro */
-.book-page-content p          { margin-bottom: 0.55em; }
+.book-page-content p          { margin-bottom: 0.55em; text-align: justify; }
 
 /* Parágrafos vazios (TipTap gera <p></p> sem <br>) precisam de altura mínima */
 .book-page-content p:empty    { min-height: 1.8em; display: block; }

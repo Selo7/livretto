@@ -1,9 +1,9 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Upload, FileText, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 export interface CapituloImportado { titulo: string; html: string }
@@ -139,8 +139,8 @@ export function ImportarArquivo({ onImportar }: ImportarArquivoProps) {
         Importar arquivo
       </Button>
 
-      {aberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      {aberto && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
@@ -206,7 +206,8 @@ export function ImportarArquivo({ onImportar }: ImportarArquivoProps) {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
