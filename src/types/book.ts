@@ -23,6 +23,7 @@ export interface Book {
   format: BookFormat
   language: string
   cover_url?: string
+  back_cover_url?: string
   cover_config?: CoverConfig
   word_count: number
   daily_goal: number

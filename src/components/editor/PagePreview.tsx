@@ -338,6 +338,14 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
               activeCursorBlock={cursorBlockIndex}
             />
           )}
+
+          {activeBook?.back_cover_url && (
+            <PaginaCapa
+              coverUrl={activeBook.back_cover_url}
+              largura={larguraPagina}
+              altura={alturaPagina}
+            />
+          )}
         </div>
 
         <div className="px-4 py-2 border-t border-border bg-background/50 shrink-0 flex items-center justify-between">
