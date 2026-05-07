@@ -90,8 +90,17 @@ export function CapaLivro() {
     updateBook(patch)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) await updateBookService(activeBook.id, { ...patch, updated_at: new Date().toISOString() })
-    } catch { /* offline ou coluna ainda não migrada */ }
+      if (user) {
+        const ts = new Date().toISOString()
+        // Salva cada campo separadamente para que falha em um não bloqueie o outro
+        if (patch.cover_url !== undefined) {
+          await updateBookService(activeBook.id, { cover_url: patch.cover_url, updated_at: ts }).catch(() => {})
+        }
+        if (patch.back_cover_url !== undefined) {
+          await updateBookService(activeBook.id, { back_cover_url: patch.back_cover_url, updated_at: ts }).catch(() => {})
+        }
+      }
+    } catch { /* offline */ }
     setEstado('sucesso')
     setTimeout(() => { setEstado('idle'); setAberto(false) }, 1000)
   }

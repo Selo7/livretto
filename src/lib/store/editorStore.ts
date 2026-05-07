@@ -62,7 +62,17 @@ export const useEditorStore = create<EditorState>()(
       chapterPageCounts: {},
 
       setMode: (mode) => set({ mode }),
-      setActiveBook: (book) => set({ activeBook: book }),
+      setActiveBook: (book) => set((s) => ({
+        activeBook: book
+          ? {
+              ...book,
+              // Preserva imagens de capa do localStorage quando o Supabase não as retorna
+              // (coluna ainda não migrada ou campo ausente na resposta)
+              cover_url: ('cover_url' in book) ? book.cover_url : s.activeBook?.cover_url,
+              back_cover_url: ('back_cover_url' in book) ? book.back_cover_url : s.activeBook?.back_cover_url,
+            }
+          : null,
+      })),
       updateBook: (patch) => set((s) => ({
         activeBook: s.activeBook ? { ...s.activeBook, ...patch } : null,
       })),
