@@ -1,6 +1,6 @@
 'use client'
 
-import { BookOpen, Map, LayoutGrid, Moon, Sun, Maximize2, Sparkles, Save, Rocket } from 'lucide-react'
+import { BookOpen, Map, LayoutGrid, Moon, Sun, Maximize2, Sparkles, Save, Rocket, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Separator } from '@/components/ui/separator'
@@ -9,7 +9,9 @@ import { useEditorStore } from '@/lib/store/editorStore'
 import { FinalizarLivro } from '@/components/editor/FinalizarLivro'
 import { AppMode } from '@/types/book'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 const modes: { id: AppMode; label: string; icon: React.ReactNode }[] = [
   { id: 'write', label: 'Escrever', icon: <BookOpen size={16} /> },
@@ -21,10 +23,17 @@ export function Header() {
   const { mode, setMode, activeBook, isFocusMode, toggleFocusMode, isAIPanelOpen, toggleAIPanel, wordCount, sessionWords } = useEditorStore()
   const [isDark, setIsDark] = useState(false)
   const [finalizarAberto, setFinalizarAberto] = useState(false)
+  const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
 
   function toggleTheme() {
     setIsDark(!isDark)
     document.documentElement.classList.toggle('dark')
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.replace('/auth/login')
   }
 
   if (isFocusMode) return null
@@ -120,6 +129,19 @@ export function Header() {
           <Rocket size={13} />
           Finalizar livro
         </Button>
+
+        <Separator orientation="vertical" className="h-5" />
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={handleLogout} />
+            }
+          >
+            <LogOut size={15} />
+          </TooltipTrigger>
+          <TooltipContent>Sair</TooltipContent>
+        </Tooltip>
       </div>
 
       {finalizarAberto && <FinalizarLivro onClose={() => setFinalizarAberto(false)} />}
