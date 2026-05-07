@@ -285,6 +285,14 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
             else if (e.key === 'Delete') { e.preventDefault(); onKeyCommand('delete') }
           }}
         >
+          {activeBook?.cover_url && (
+            <PaginaCapa
+              coverUrl={activeBook.cover_url}
+              largura={larguraPagina}
+              altura={alturaPagina}
+            />
+          )}
+
           {paginas.map((p, i) => {
             const isFirstOfChapter = i === 0 || paginas[i - 1].chapterIdx !== p.chapterIdx
             const chapterForOpening = chapters[p.chapterIdx]
@@ -340,6 +348,25 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
         </div>
       </aside>
     </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// PaginaCapa (capa do livro — primeira página, sem numeração)
+// ---------------------------------------------------------------------------
+
+function PaginaCapa({ coverUrl, largura, altura }: { coverUrl: string; largura: number; altura: number }) {
+  return (
+    <div
+      className="relative shrink-0 shadow-xl rounded-sm overflow-hidden"
+      style={{ width: largura, height: altura }}
+    >
+      <img
+        src={coverUrl}
+        alt="Capa"
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      />
+    </div>
   )
 }
 
