@@ -67,12 +67,19 @@ export const useEditorStore = create<EditorState>()(
         activeBook: s.activeBook ? { ...s.activeBook, ...patch } : null,
       })),
       setActiveChapter: (chapter) => set({ activeChapter: chapter }),
-      setChapters: (chapters) => set((s) => ({
-        chapters,
-        activeChapter: s.activeChapter
-          ? (chapters.find((c) => c.id === s.activeChapter!.id) ?? s.activeChapter)
-          : null,
-      })),
+      setChapters: (chapters) => set((s) => {
+        // Preserve footnotes from existing Zustand state (Supabase may not have the column yet)
+        const merged = chapters.map((c) => {
+          const existing = s.chapters.find((e) => e.id === c.id)
+          return existing?.footnotes?.length ? { ...c, footnotes: existing.footnotes } : c
+        })
+        return {
+          chapters: merged,
+          activeChapter: s.activeChapter
+            ? (merged.find((c) => c.id === s.activeChapter!.id) ?? s.activeChapter)
+            : null,
+        }
+      }),
       updateChapterTitle: (id, title) => set((s) => ({
         chapters: s.chapters.map((c) => c.id === id ? { ...c, title } : c),
         activeChapter: s.activeChapter?.id === id ? { ...s.activeChapter, title } : s.activeChapter,

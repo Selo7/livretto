@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { useEditorStore } from '@/lib/store/editorStore'
 import { BookFormat } from '@/types/book'
@@ -67,6 +67,7 @@ interface PaginaData {
   startBlock: number
   endBlock: number
   footnotes: FootnoteEntry[]
+  chapterIdx: number
 }
 
 interface PagePreviewProps {
@@ -112,8 +113,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
     return chapters
       .map((c, i) => {
         const html = c.id === activeChapter?.id ? content : (c.content_html || '')
-        const titulo = c.numbered !== false ? `<h1>${c.title || 'Sem título'}</h1>` : ''
-        return (i === 0 ? '' : '<hr/>') + titulo + html
+        return (i === 0 ? '' : '<hr/>') + html
       })
       .join('')
   }, [modoVisualizacao, content, chapters, activeChapter?.id])
@@ -123,7 +123,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!htmlParaPaginar || !medidorRef.current) {
-      setPaginas([{ html: '', startBlock: 0, endBlock: 0, footnotes: [] }])
+      setPaginas([{ html: '', startBlock: 0, endBlock: 0, footnotes: [], chapterIdx: 0 }])
       return
     }
 
@@ -136,7 +136,6 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
       for (let i = 0; i < chapters.length; i++) {
         const c = chapters[i]
         if (i > 0) blockCount++ // HR separator
-        if (c.numbered !== false) blockCount++ // H1 title
         if (c.id === activeChapter?.id) { activeChapterStartBlockRef.current = blockCount; break }
         const tmp = document.createElement('div')
         tmp.innerHTML = c.content_html || ''
@@ -159,13 +158,14 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
     let htmlAtual = ''
     let blockNum = 0
     let startBlock = 0
+    let chapterIdx = 0
 
     const finalizarPagina = (html: string, start: number, end: number) => {
       const cits = findCitations(html)
       const footnotes: FootnoteEntry[] = cits
         .filter(n => footnoteMap.has(n))
         .map(n => ({ num: n, html: footnoteMap.get(n)! }))
-      paginasGeradas.push({ html, startBlock: start, endBlock: end, footnotes })
+      paginasGeradas.push({ html, startBlock: start, endBlock: end, footnotes, chapterIdx })
     }
 
     for (const no of nos) {
@@ -178,6 +178,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
         alturaAcumulada = 0
         blockNum++
         startBlock = blockNum
+        chapterIdx++
         continue
       }
 
@@ -197,7 +198,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
 
     if (htmlAtual) finalizarPagina(htmlAtual, startBlock, blockNum - 1)
     if (paginasGeradas.length === 0) {
-      paginasGeradas.push({ html: '', startBlock: 0, endBlock: 0, footnotes: [] })
+      paginasGeradas.push({ html: '', startBlock: 0, endBlock: 0, footnotes: [], chapterIdx: 0 })
     }
 
     setPaginas(paginasGeradas)
@@ -324,40 +325,47 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
             else if (e.key === 'Delete') { e.preventDefault(); onKeyCommand('delete') }
           }}
         >
-          {modoVisualizacao === 'capitulo' && activeChapter?.opening_style && activeChapter.opening_style !== 'nenhum' && (() => {
-            const activeIndex = chapters.findIndex(c => c.id === activeChapter.id)
-            const chapterNumber = activeChapter.numbered === false
-              ? null
-              : chapters.slice(0, activeIndex + 1).filter(c => c.numbered !== false).length
-            return (
-              <PaginaAbertura
-                chapter={activeChapter}
-                chapterNumber={chapterNumber}
-                largura={larguraPagina}
-                altura={alturaPagina}
-                scale={scale}
-                fontCss={fontCss}
-              />
-            )
-          })()}
-
-          {paginas.map((p, i) => (
-            <Pagina
-              key={i}
-              ref={(el) => { pageRefs.current[i] = el }}
-              html={p.html}
-              numero={displayNum(i)}
+          {modoVisualizacao === 'capitulo' && activeChapter?.opening_style && activeChapter.opening_style !== 'nenhum' && (
+            <PaginaAbertura
+              chapter={activeChapter}
               largura={larguraPagina}
               altura={alturaPagina}
-              margins={margins}
               scale={scale}
               fontCss={fontCss}
-              footnotes={p.footnotes}
-              startBlock={p.startBlock}
-              activeCursorBlock={cursorBlockIndex}
-              onBlockClick={modoVisualizacao === 'capitulo' ? onBlockClick : undefined}
             />
-          ))}
+          )}
+
+          {paginas.map((p, i) => {
+            const isFirstOfChapter = i === 0 || paginas[i - 1].chapterIdx !== p.chapterIdx
+            const chapterForOpening = modoVisualizacao === 'livro' ? chapters[p.chapterIdx] : null
+            return (
+              <Fragment key={i}>
+                {modoVisualizacao === 'livro' && isFirstOfChapter && chapterForOpening?.opening_style && chapterForOpening.opening_style !== 'nenhum' && (
+                  <PaginaAbertura
+                    chapter={chapterForOpening}
+                    largura={larguraPagina}
+                    altura={alturaPagina}
+                    scale={scale}
+                    fontCss={fontCss}
+                  />
+                )}
+                <Pagina
+                  ref={(el) => { pageRefs.current[i] = el }}
+                  html={p.html}
+                  numero={displayNum(i)}
+                  largura={larguraPagina}
+                  altura={alturaPagina}
+                  margins={margins}
+                  scale={scale}
+                  fontCss={fontCss}
+                  footnotes={p.footnotes}
+                  startBlock={p.startBlock}
+                  activeCursorBlock={cursorBlockIndex}
+                  onBlockClick={modoVisualizacao === 'capitulo' ? onBlockClick : undefined}
+                />
+              </Fragment>
+            )
+          })}
 
           {paginas.length === 0 && (
             <Pagina
@@ -394,19 +402,16 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
 
 interface PaginaAberturaProps {
   chapter: Chapter
-  chapterNumber: number | null
   largura: number
   altura: number
   scale: number
   fontCss: string
 }
 
-function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCss }: PaginaAberturaProps) {
+function PaginaAbertura({ chapter, largura, altura, scale, fontCss }: PaginaAberturaProps) {
   const { opening_style, opening_image, opening_epigraph, opening_epigraph_author, title } = chapter
   const fs = (n: number) => n * scale
-  const numLabel = chapterNumber !== null
-    ? `Capítulo ${chapter.chapter_num?.trim() || chapterNumber}`
-    : null
+  const numLabel = chapter.chapter_num?.trim() ? `Capítulo ${chapter.chapter_num.trim()}` : null
 
   const baseStyle: React.CSSProperties = {
     width: largura, height: altura, position: 'relative', overflow: 'hidden', flexShrink: 0,
@@ -419,7 +424,7 @@ function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCs
           <div style={{ width: fs(60), height: 1, background: '#c8b89a' }} />
           <div style={{ textAlign: 'center' }}>
             {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.15em', color: '#999', textTransform: 'uppercase', marginBottom: fs(6) }}>{numLabel}</p>}
-            {chapterNumber !== null && <p style={{ fontSize: fs(16), color: '#1a1a1a', lineHeight: 1.3 }}>{title}</p>}
+            <p style={{ fontSize: fs(16), color: '#1a1a1a', lineHeight: 1.3 }}>{title}</p>
           </div>
           <div style={{ width: fs(60), height: 1, background: '#c8b89a' }} />
         </div>
@@ -432,7 +437,7 @@ function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCs
       <div className="shadow-xl rounded-sm" style={{ ...baseStyle, background: '#faf8f0' }}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: `0 ${fs(50)}px`, fontFamily: fontCss }}>
           {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.15em', color: '#999', textTransform: 'uppercase', marginBottom: fs(6) }}>{numLabel}</p>}
-          {chapterNumber !== null && <p style={{ fontSize: fs(16), color: '#1a1a1a', marginBottom: fs(28) }}>{title}</p>}
+          <p style={{ fontSize: fs(16), color: '#1a1a1a', marginBottom: fs(28) }}>{title}</p>
           {opening_epigraph && (
             <div style={{ borderLeft: `2px solid #c8b89a`, paddingLeft: fs(12) }}>
               <p style={{ fontSize: fs(9), color: '#555', fontStyle: 'italic', lineHeight: 1.6, marginBottom: fs(6) }}>&ldquo;{opening_epigraph}&rdquo;</p>
@@ -456,7 +461,7 @@ function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCs
         </div>
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: altura - imgHeight, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: fontCss, gap: fs(4) }}>
           {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.12em', color: '#999', textTransform: 'uppercase' }}>{numLabel}</p>}
-          {chapterNumber !== null && <p style={{ fontSize: fs(14), color: '#1a1a1a' }}>{title}</p>}
+          <p style={{ fontSize: fs(14), color: '#1a1a1a' }}>{title}</p>
         </div>
       </div>
     )
@@ -471,7 +476,7 @@ function PaginaAbertura({ chapter, chapterNumber, largura, altura, scale, fontCs
         }
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: `${fs(20)}px ${fs(30)}px`, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)', fontFamily: fontCss }}>
           {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.15em', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', marginBottom: fs(6) }}>{numLabel}</p>}
-          {chapterNumber !== null && <p style={{ fontSize: fs(16), color: '#fff', lineHeight: 1.2 }}>{title}</p>}
+          <p style={{ fontSize: fs(16), color: '#fff', lineHeight: 1.2 }}>{title}</p>
         </div>
       </div>
     )

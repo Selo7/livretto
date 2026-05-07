@@ -33,16 +33,29 @@ export function BuscarTexto({ editor, open, onClose }: BuscarTextoProps) {
     setInfo({ total: s.matches.length, current: s.currentIdx })
   }, [termo, editor, open])
 
+  function scrollToMatch(ed: typeof editor) {
+    if (!ed) return
+    const s = getSearchState(ed)
+    if (s.currentIdx < 0 || !s.matches.length) return
+    try {
+      const { node } = ed.view.domAtPos(s.matches[s.currentIdx].from)
+      const el = node instanceof Element ? node : (node as ChildNode).parentElement
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } catch { /* posição fora do DOM */ }
+  }
+
   function next() {
     editor?.commands.findNext()
     const s = getSearchState(editor)
     setInfo({ total: s.matches.length, current: s.currentIdx })
+    scrollToMatch(editor)
   }
 
   function prev() {
     editor?.commands.findPrev()
     const s = getSearchState(editor)
     setInfo({ total: s.matches.length, current: s.currentIdx })
+    scrollToMatch(editor)
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
