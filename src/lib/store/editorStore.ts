@@ -78,10 +78,22 @@ export const useEditorStore = create<EditorState>()(
       })),
       setActiveChapter: (chapter) => set({ activeChapter: chapter }),
       setChapters: (chapters) => set((s) => {
-        // Preserve footnotes from existing Zustand state (Supabase may not have the column yet)
+        // Preserve fields that may not exist as Supabase columns yet.
+        // Use `in` operator: if the column IS in the Supabase response (even as null),
+        // trust it; if absent (column doesn't exist), fall back to localStorage value.
         const merged = chapters.map((c) => {
           const existing = s.chapters.find((e) => e.id === c.id)
-          return existing?.footnotes?.length ? { ...c, footnotes: existing.footnotes } : c
+          if (!existing) return c
+          return {
+            ...c,
+            footnotes: ('footnotes' in c && (c.footnotes?.length ?? 0) > 0) ? c.footnotes : existing.footnotes,
+            opening_style:          'opening_style'          in c ? c.opening_style          : existing.opening_style,
+            opening_image:          'opening_image'          in c ? c.opening_image          : existing.opening_image,
+            opening_epigraph:       'opening_epigraph'       in c ? c.opening_epigraph       : existing.opening_epigraph,
+            opening_epigraph_author:'opening_epigraph_author'in c ? c.opening_epigraph_author: existing.opening_epigraph_author,
+            numbered:               'numbered'               in c ? c.numbered               : existing.numbered,
+            chapter_num:            'chapter_num'            in c ? c.chapter_num            : existing.chapter_num,
+          }
         })
         return {
           chapters: merged,

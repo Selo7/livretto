@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { Chapter, ChapterOpeningStyle } from '@/types/book'
 import { useEditorStore } from '@/lib/store/editorStore'
+import { updateChapter } from '@/lib/services/chapters'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -51,14 +52,16 @@ export function IntercapaCapitulo({ chapter, children, open: openProp, onClose }
   }
 
   function salvar() {
-    updateChapterOpening(chapter.id, {
+    const patch = {
       opening_style: estilo,
       opening_image: imagem || undefined,
       opening_epigraph: epigrafe || undefined,
       opening_epigraph_author: autorEpigrafe || undefined,
       numbered: numerado,
       chapter_num: chapterNum.trim() || undefined,
-    })
+    }
+    updateChapterOpening(chapter.id, patch)
+    updateChapter(chapter.id, { ...patch, updated_at: new Date().toISOString() }).catch(() => {})
     fechar()
   }
 
