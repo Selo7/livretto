@@ -129,6 +129,42 @@
   }
 }
 
+/* Visualizador flip — animação 3D de passagem de página */
+.flip-leaf {
+  position: absolute;
+  top: 0;
+  transform-style: preserve-3d;
+  animation-duration: 650ms;
+  animation-fill-mode: forwards;
+  animation-timing-function: cubic-bezier(0.645, 0.045, 0.355, 1.000);
+  z-index: 10;
+}
+.flip-leaf.flip-next {
+  transform-origin: left center;
+  animation-name: flipNext;
+}
+.flip-leaf.flip-prev {
+  transform-origin: right center;
+  animation-name: flipPrev;
+}
+@keyframes flipNext {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(-180deg); }
+}
+@keyframes flipPrev {
+  0%   { transform: rotateY(-180deg); }
+  100% { transform: rotateY(0deg); }
+}
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-face-back {
+  transform: rotateY(180deg);
+}
+
 /* Busca no editor */
 .search-match  { background: #fde68a; border-radius: 2px; }
 .search-current { background: #f97316; color: #fff; border-radius: 2px; }

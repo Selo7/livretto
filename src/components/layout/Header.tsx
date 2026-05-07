@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator'
 import { AreaLabel } from '@/components/ui/area-label'
 import { useEditorStore } from '@/lib/store/editorStore'
 import { FinalizarLivro } from '@/components/editor/FinalizarLivro'
+import { VisualizadorFlip } from '@/components/editor/VisualizadorFlip'
 import { AppMode } from '@/types/book'
 import { cn } from '@/lib/utils'
 import { useState, useMemo } from 'react'
@@ -23,6 +24,7 @@ export function Header() {
   const { mode, setMode, activeBook, isFocusMode, toggleFocusMode, isAIPanelOpen, toggleAIPanel, wordCount, sessionWords } = useEditorStore()
   const [isDark, setIsDark] = useState(false)
   const [finalizarAberto, setFinalizarAberto] = useState(false)
+  const [showFlip, setShowFlip] = useState(false)
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 
@@ -124,7 +126,7 @@ export function Header() {
         <Button
           size="sm"
           className="h-8 gap-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white"
-          onClick={() => setFinalizarAberto(true)}
+          onClick={() => setShowFlip(true)}
         >
           <Rocket size={13} />
           Finalizar livro
@@ -145,6 +147,12 @@ export function Header() {
       </div>
 
       {finalizarAberto && <FinalizarLivro onClose={() => setFinalizarAberto(false)} />}
+      {showFlip && (
+        <VisualizadorFlip
+          onClose={() => setShowFlip(false)}
+          onContinuar={() => { setShowFlip(false); setFinalizarAberto(true) }}
+        />
+      )}
     </header>
   )
 }
