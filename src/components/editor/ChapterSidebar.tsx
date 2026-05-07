@@ -18,6 +18,7 @@ import { useEditorStore } from '@/lib/store/editorStore'
 import { createClient } from '@/lib/supabase/client'
 import { updateChapter, deleteChapter, reorderChapters } from '@/lib/services/chapters'
 import { IntercapaCapitulo } from './IntercapaCapitulo'
+import { CapaLivro } from './CapaLivro'
 import { cn } from '@/lib/utils'
 import { Chapter } from '@/types/book'
 
@@ -228,6 +229,10 @@ export function ChapterSidebar({ onAddChapter, onSelectChapter }: ChapterSidebar
 
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-0.5">
+          <CapaLivro />
+
+          <div className="my-1 border-t border-border/60" />
+
           {chapters.length === 0 && (
             <div className="px-2 py-8 text-center">
               <p className="text-xs text-muted-foreground">Nenhum capítulo ainda.</p>
