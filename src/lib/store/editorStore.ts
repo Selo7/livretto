@@ -89,6 +89,7 @@ export const useEditorStore = create<EditorState>()(
             footnotes: ('footnotes' in c && (c.footnotes?.length ?? 0) > 0) ? c.footnotes : existing.footnotes,
             // Prefer Supabase value when present and non-null; fall back to localStorage
             // when Supabase returns null (column exists but UPDATE failed or not yet set).
+            content_html:           'content_html'           in c ? (c.content_html           ?? existing.content_html)           : existing.content_html,
             opening_style:          'opening_style'          in c ? (c.opening_style          ?? existing.opening_style)          : existing.opening_style,
             opening_image:          'opening_image'          in c ? (c.opening_image          ?? existing.opening_image)          : existing.opening_image,
             opening_epigraph:       'opening_epigraph'       in c ? (c.opening_epigraph       ?? existing.opening_epigraph)       : existing.opening_epigraph,

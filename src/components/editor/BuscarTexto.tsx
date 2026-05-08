@@ -40,13 +40,26 @@ export function BuscarTexto({ editor, open, onClose }: BuscarTextoProps) {
     }
   }, [open, editor])
 
-  // Re-executa busca quando o capítulo ativo muda (ex: após trocar de capítulo)
+  // Busca conforme o usuário digita (imediato)
   useEffect(() => {
     if (!editor || !open) return
     editor.commands.setSearchTerm(termo)
     const s = getSearchState(editor)
     setInfo({ total: s.matches.length, current: s.currentIdx })
-  }, [termo, editor, open, activeChapter?.id])
+  }, [termo, editor, open])
+
+  // Após trocar de capítulo, re-busca com rAF para aguardar o BookEditor carregar o conteúdo
+  useEffect(() => {
+    if (!editor || !open || !termo) return
+    const id = requestAnimationFrame(() => {
+      editor.commands.setSearchTerm(termo)
+      const s = getSearchState(editor)
+      setInfo({ total: s.matches.length, current: s.currentIdx })
+      if (s.matches.length > 0) scrollToMatch(editor)
+    })
+    return () => cancelAnimationFrame(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChapter?.id])
 
   function scrollToMatch(ed: typeof editor) {
     if (!ed) return
@@ -81,7 +94,6 @@ export function BuscarTexto({ editor, open, onClose }: BuscarTextoProps) {
   function irParaCapitulo(chapter: Parameters<typeof setActiveChapter>[0]) {
     if (!chapter) return
     setActiveChapter(chapter)
-    onClose()
   }
 
   if (!open) return null
