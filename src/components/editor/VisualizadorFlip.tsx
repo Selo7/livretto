@@ -5,7 +5,7 @@ import { X, ChevronLeft, ChevronRight, Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useEditorStore } from '@/lib/store/editorStore'
 import { getFontById } from '@/lib/fonts'
-import { BookFormat } from '@/types/book'
+import { BookFormat, Chapter } from '@/types/book'
 
 // ---------------------------------------------------------------------------
 // Dimensões por formato (px a 96 dpi para renderização)
@@ -26,13 +26,19 @@ const FORMAT_MARGINS: Record<BookFormat, { top: number; right: number; bottom: n
 }
 
 // ---------------------------------------------------------------------------
-// Tipos de página
+// Tipos
 // ---------------------------------------------------------------------------
+interface FootnoteEntry {
+  num: number
+  html: string
+}
+
 type PageItem =
   | { kind: 'blank' }
   | { kind: 'cover';     src: string }
   | { kind: 'backCover'; src: string }
-  | { kind: 'content';   html: string; num: string }
+  | { kind: 'intercapa'; chapter: Chapter }
+  | { kind: 'content';   html: string; num: string; footnotes: FootnoteEntry[] }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -65,12 +71,11 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
   const margins = FORMAT_MARGINS[format]
   const fontCss = getFontById(activeBook?.body_font).css
 
-  // Escala baseada na viewport
   const [scale, setScale] = useState(0.5)
   useEffect(() => {
     const update = () => {
       const maxH = window.innerHeight * 0.80
-      const maxW = (window.innerWidth * 0.90) / 2 // metade para cada página
+      const maxW = (window.innerWidth * 0.90) / 2
       setScale(Math.min(maxH / dims.h, maxW / dims.w, 0.85))
     }
     update()
@@ -78,74 +83,131 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
     return () => window.removeEventListener('resize', update)
   }, [dims.h, dims.w])
 
-  const pw = dims.w * scale   // page width
-  const ph = dims.h * scale   // page height
+  const pw = dims.w * scale
+  const ph = dims.h * scale
   const alturaUtil = (dims.h - margins.top - margins.bottom) * scale
   const larguraUtil = (dims.w - margins.left - margins.right) * scale
 
   // ---------------------------------------------------------------------------
-  // Paginação
+  // Paginação — motor baseado em scrollHeight (layout real do browser, como o Word)
+  //
+  // Adiciona cada elemento ao medidor e verifica scrollHeight real após cada adição.
+  // Margem de segurança de 1 cm (38 px × escala) abaixo do conteúdo.
+  // Anti-orphan: heading no fim da página é puxado para a próxima.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!medidorRef.current) return
 
     const htmlContent = chapters.length > 0
       ? chapters.map((c, i) => {
-          const html = c.id === activeChapter?.id
-            ? (c.content_html || '')
-            : (c.content_html || '')
+          const html = c.id === activeChapter?.id ? (c.content_html || '') : (c.content_html || '')
           return (i === 0 ? '' : '<hr/>') + html
         }).join('')
       : ''
 
     const allFootnotes = chapters.flatMap(c => c.footnotes ?? [])
     const footnoteMap = new Map(allFootnotes.map(f => [f.num, f.content]))
-
     const medidor = medidorRef.current
-    medidor.style.width = `${larguraUtil}px`
-    medidor.style.fontSize = `${11 * scale}px`
-    medidor.style.lineHeight = '1.8'
-    medidor.style.fontFamily = fontCss
-    medidor.innerHTML = htmlContent
 
-    const contentPages: PageItem[] = []
-    let acc = 0, html = '', blockNum = 0, pageNum = 1
+    const runLayout = () => {
+      if (!medidorRef.current) return
 
-    for (const no of Array.from(medidor.childNodes)) {
-      if (!(no instanceof Element)) continue
-      const el = no as HTMLElement
-      if (el.tagName === 'HR') { acc = 0; blockNum++; continue }
-      const h = el.offsetHeight + 16
-      if (acc + h > alturaUtil && html) {
+      medidor.style.width = `${larguraUtil}px`
+      medidor.style.fontSize = `${11 * scale}px`
+      medidor.style.lineHeight = '1.8'
+      medidor.style.fontFamily = fontCss
+
+      medidor.innerHTML = htmlContent
+      const allNodes = Array.from(medidor.childNodes)
+      medidor.innerHTML = ''
+
+      const SAFETY = 38 * scale
+      const pageLimit = alturaUtil - SAFETY
+
+      interface ContentPage { html: string; footnotes: FootnoteEntry[]; chapterIdx: number }
+      const contentPages: ContentPage[] = []
+      let htmlAtual = ''
+      let chapterIdx = 0
+      let lastElHtml = ''
+      let lastElTag = ''
+      let pageNum = 1
+
+      const finalizarPagina = (html: string) => {
         const cits = findCitations(html)
-        let fnHtml = ''
-        cits.forEach(n => { if (footnoteMap.has(n)) fnHtml += `<div style="font-size:0.72em;color:#555;display:flex;gap:4px"><span style="font-weight:600">[${n}]</span><span>${footnoteMap.get(n)}</span></div>` })
-        const pageHtml = fnHtml
-          ? `${html}<div style="margin-top:auto;padding-top:6px;border-top:0.5px solid #bbb">${fnHtml}</div>`
-          : html
-        contentPages.push({ kind: 'content', html: pageHtml, num: String(pageNum++) })
-        html = el.outerHTML; acc = h
-      } else {
-        html += el.outerHTML; acc += h
+        const footnotes: FootnoteEntry[] = cits
+          .filter(n => footnoteMap.has(n))
+          .map(n => ({ num: n, html: footnoteMap.get(n)! }))
+        contentPages.push({ html, footnotes, chapterIdx })
       }
-      blockNum++
+
+      for (const no of allNodes) {
+        if (!(no instanceof Element)) continue
+        const el = no as HTMLElement
+
+        if (el.tagName === 'HR') {
+          if (htmlAtual) finalizarPagina(htmlAtual)
+          htmlAtual = ''
+          medidor.innerHTML = ''
+          chapterIdx++
+          lastElHtml = ''
+          lastElTag = ''
+          continue
+        }
+
+        const clone = el.cloneNode(true) as HTMLElement
+        medidor.appendChild(clone)
+
+        if (medidor.scrollHeight > pageLimit && htmlAtual) {
+          medidor.removeChild(clone)
+
+          if (/^H[1-3]$/.test(lastElTag) && htmlAtual.length > lastElHtml.length) {
+            finalizarPagina(htmlAtual.slice(0, -lastElHtml.length))
+            htmlAtual = lastElHtml + el.outerHTML
+          } else {
+            finalizarPagina(htmlAtual)
+            htmlAtual = el.outerHTML
+          }
+          medidor.innerHTML = htmlAtual
+          lastElHtml = el.outerHTML
+          lastElTag = el.tagName
+        } else {
+          htmlAtual += el.outerHTML
+          lastElHtml = el.outerHTML
+          lastElTag = el.tagName
+        }
+      }
+
+      if (htmlAtual) finalizarPagina(htmlAtual)
+
+      // Montar array completo: capa + intercapas + conteúdo + contracapa
+      const pages: PageItem[] = []
+      if (activeBook?.cover_url) pages.push({ kind: 'cover', src: activeBook.cover_url })
+
+      let prevChapterIdx = -1
+      for (const cp of contentPages) {
+        if (cp.chapterIdx !== prevChapterIdx) {
+          const chapter = chapters[cp.chapterIdx]
+          if (chapter?.opening_style && chapter.opening_style !== 'nenhum') {
+            pages.push({ kind: 'intercapa', chapter })
+          }
+          prevChapterIdx = cp.chapterIdx
+        }
+        pages.push({ kind: 'content', html: cp.html, num: String(pageNum++), footnotes: cp.footnotes })
+      }
+
+      if (activeBook?.back_cover_url) pages.push({ kind: 'backCover', src: activeBook.back_cover_url })
+
+      // Capa à direita: blank antes; contagem par
+      if (pages.length > 0 && pages[0].kind === 'cover') {
+        pages.unshift({ kind: 'blank' })
+      }
+      if (pages.length % 2 !== 0) pages.push({ kind: 'blank' })
+
+      setAllPages(pages)
+      setSpreadIdx(0)
     }
-    if (html) contentPages.push({ kind: 'content', html, num: String(pageNum++) })
 
-    // Montar array completo: capa + conteúdo + contracapa
-    const pages: PageItem[] = []
-    if (activeBook?.cover_url) pages.push({ kind: 'cover', src: activeBook.cover_url })
-    pages.push(...contentPages)
-    if (activeBook?.back_cover_url) pages.push({ kind: 'backCover', src: activeBook.back_cover_url })
-
-    // Garantir contagem par (adiciona blank no início se necessário para cover ficar à direita)
-    if (pages.length > 0 && pages[0].kind === 'cover') {
-      pages.unshift({ kind: 'blank' })
-    }
-    if (pages.length % 2 !== 0) pages.push({ kind: 'blank' })
-
-    setAllPages(pages)
-    setSpreadIdx(0)
+    document.fonts.ready.then(runLayout)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapters, activeChapter?.id, scale, fontCss, alturaUtil, larguraUtil])
 
@@ -184,27 +246,20 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [goNext, goPrev, onClose])
 
-  // ---------------------------------------------------------------------------
-  // O que renderizar durante animação
-  // ---------------------------------------------------------------------------
-  const cur  = spreads[spreadIdx]   ?? [{ kind: 'blank' }, { kind: 'blank' }]
+  const cur  = spreads[spreadIdx]     ?? [{ kind: 'blank' }, { kind: 'blank' }]
   const next = spreads[spreadIdx + 1] ?? [{ kind: 'blank' }, { kind: 'blank' }]
   const prev = spreads[spreadIdx - 1] ?? [{ kind: 'blank' }, { kind: 'blank' }]
 
-  // Páginas de fundo (sem o leaf)
   const bgLeft  = animating && flipDir === 'next' ? cur[0]  : animating && flipDir === 'prev' ? prev[0] : cur[0]
   const bgRight = animating && flipDir === 'next' ? next[1] : animating && flipDir === 'prev' ? cur[1]  : cur[1]
 
-  // Conteúdo do leaf
   const leafFront = flipDir === 'next' ? cur[1]  : cur[0]
   const leafBack  = flipDir === 'next' ? next[0] : prev[1]
-  const leafLeft  = flipDir === 'prev' ? 0 : pw + 8   // posição horizontal do leaf
+  const leafLeft  = flipDir === 'prev' ? 0 : pw + 8
 
+  const contentCount = allPages.filter(p => p.kind === 'content').length
   const progress = `${spreadIdx * 2 + 1} – ${Math.min(spreadIdx * 2 + 2, allPages.length)} de ${allPages.length}`
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
   return (
     <div className="fixed inset-0 z-[9999] bg-neutral-950 flex flex-col items-center justify-center gap-6 select-none">
 
@@ -214,7 +269,7 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
 
       {/* Barra superior */}
       <div className="w-full flex items-center justify-between px-6 shrink-0">
-        <p className="text-xs text-white/40">{activeBook?.title}</p>
+        <p className="text-xs text-white/40">{activeBook?.title} · {contentCount} páginas</p>
         <div className="flex items-center gap-3">
           <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8" onClick={onContinuar}>
             <Rocket size={13} />
@@ -230,27 +285,22 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
       <div style={{ perspective: '2500px', perspectiveOrigin: 'center center' }}>
         <div className="relative flex" style={{ width: pw * 2 + 8, height: ph }}>
 
-          {/* Sombra do livro */}
           <div style={{
             position: 'absolute', bottom: -12, left: '5%', right: '5%', height: 20,
             background: 'radial-gradient(ellipse, rgba(0,0,0,0.6) 0%, transparent 70%)',
             filter: 'blur(6px)', zIndex: -1,
           }} />
 
-          {/* Página esquerda (fundo) */}
           <PageRenderer item={bgLeft} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side="left" />
 
-          {/* Lombada */}
           <div style={{
             width: 8, height: ph, flexShrink: 0, zIndex: 5,
             background: 'linear-gradient(to right, #c8b89a, #e8dcc8, #c8b89a)',
             boxShadow: '0 0 8px rgba(0,0,0,0.3)',
           }} />
 
-          {/* Página direita (fundo) */}
           <PageRenderer item={bgRight} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side="right" />
 
-          {/* Leaf animado */}
           {animating && (
             <div
               className={`flip-leaf ${flipDir === 'next' ? 'flip-next' : 'flip-prev'}`}
@@ -326,6 +376,15 @@ function PageRenderer({ item, pw, ph, margins, scale, fontCss, side }: {
     )
   }
 
+  if (item.kind === 'intercapa') {
+    return <IntercapaRenderer chapter={item.chapter} base={base} ph={ph} scale={scale} fontCss={fontCss} />
+  }
+
+  // content page
+  const fnHeight = item.footnotes.length > 0
+    ? (46 * scale) + (item.footnotes.length * 24 * scale)
+    : 0
+
   return (
     <div style={base}>
       <div
@@ -333,7 +392,7 @@ function PageRenderer({ item, pw, ph, margins, scale, fontCss, side }: {
         style={{
           top: margins.top * scale,
           right: margins.right * scale,
-          bottom: margins.bottom * scale,
+          bottom: margins.bottom * scale + fnHeight,
           left: margins.left * scale,
           fontSize: 11 * scale,
           lineHeight: 1.8,
@@ -342,16 +401,119 @@ function PageRenderer({ item, pw, ph, margins, scale, fontCss, side }: {
         }}
         dangerouslySetInnerHTML={{ __html: item.html }}
       />
-      <div
-        style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          display: 'flex', justifyContent: 'center',
-          paddingBottom: (margins.bottom * scale) / 3,
-          fontSize: 9 * scale, color: '#888',
-        }}
-      >
+
+      {item.footnotes.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          bottom: margins.bottom * scale,
+          left: margins.left * scale,
+          right: margins.right * scale,
+          borderTop: `${0.5 * scale}px solid #bbb`,
+          paddingTop: 4 * scale,
+          background: '#faf8f0',
+        }}>
+          {item.footnotes.map(fn => (
+            <div key={fn.num} style={{
+              fontSize: 8.5 * scale, lineHeight: 1.5, color: '#444',
+              display: 'flex', gap: 3 * scale, marginBottom: 2 * scale, fontFamily: fontCss,
+            }}>
+              <span style={{ flexShrink: 0, fontWeight: 600 }}>[{fn.num}]</span>
+              <span dangerouslySetInnerHTML={{ __html: fn.html }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        display: 'flex', justifyContent: 'center',
+        paddingBottom: (margins.bottom * scale) / 3,
+        fontSize: 9 * scale, color: '#888',
+      }}>
         {item.num}
       </div>
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Renderizador de intercapa (abertura de capítulo)
+// ---------------------------------------------------------------------------
+function IntercapaRenderer({ chapter, base, ph, scale, fontCss }: {
+  chapter: Chapter
+  base: React.CSSProperties
+  ph: number
+  scale: number
+  fontCss: string
+}) {
+  const { opening_style, opening_image, opening_epigraph, opening_epigraph_author, title } = chapter
+  const fs = (n: number) => n * scale
+  const numLabel = chapter.chapter_num?.trim() ? `Capítulo ${chapter.chapter_num.trim()}` : null
+
+  if (opening_style === 'simples') {
+    return (
+      <div style={{ ...base, background: '#faf8f0' }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: fs(12), padding: `0 ${fs(40)}px`, fontFamily: fontCss }}>
+          <div style={{ width: fs(60), height: 1, background: '#c8b89a' }} />
+          <div style={{ textAlign: 'center' }}>
+            {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.15em', color: '#999', textTransform: 'uppercase', marginBottom: fs(6) }}>{numLabel}</p>}
+            <p style={{ fontSize: fs(16), color: '#1a1a1a', lineHeight: 1.3 }}>{title}</p>
+          </div>
+          <div style={{ width: fs(60), height: 1, background: '#c8b89a' }} />
+        </div>
+      </div>
+    )
+  }
+
+  if (opening_style === 'epigrafe') {
+    return (
+      <div style={{ ...base, background: '#faf8f0' }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: `0 ${fs(50)}px`, fontFamily: fontCss }}>
+          {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.15em', color: '#999', textTransform: 'uppercase', marginBottom: fs(6) }}>{numLabel}</p>}
+          <p style={{ fontSize: fs(16), color: '#1a1a1a', marginBottom: fs(28) }}>{title}</p>
+          {opening_epigraph && (
+            <div style={{ borderLeft: `2px solid #c8b89a`, paddingLeft: fs(12) }}>
+              <p style={{ fontSize: fs(9), color: '#555', fontStyle: 'italic', lineHeight: 1.6, marginBottom: fs(6) }}>&ldquo;{opening_epigraph}&rdquo;</p>
+              {opening_epigraph_author && <p style={{ fontSize: fs(8), color: '#888', textAlign: 'right' }}>— {opening_epigraph_author}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (opening_style === 'ilustrado') {
+    const imgHeight = ph * 0.55
+    return (
+      <div style={{ ...base, background: '#faf8f0' }}>
+        <div style={{ height: imgHeight, overflow: 'hidden', background: 'linear-gradient(135deg, #e8e0d0 0%, #d0c4a8 100%)' }}>
+          {opening_image
+            ? <img src={opening_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p style={{ fontSize: fs(8), color: '#b0a080', fontStyle: 'italic', fontFamily: fontCss }}>Imagem do capítulo</p></div>
+          }
+        </div>
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: ph - imgHeight, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: fontCss, gap: fs(4) }}>
+          {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.12em', color: '#999', textTransform: 'uppercase' }}>{numLabel}</p>}
+          <p style={{ fontSize: fs(14), color: '#1a1a1a' }}>{title}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (opening_style === 'pagina-inteira') {
+    return (
+      <div style={{ ...base, background: '#1a1510' }}>
+        {opening_image
+          ? <img src={opening_image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} />
+          : <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #3a3530 0%, #1a1510 100%)' }} />
+        }
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: `${fs(20)}px ${fs(30)}px`, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)', fontFamily: fontCss }}>
+          {numLabel && <p style={{ fontSize: fs(8), letterSpacing: '0.15em', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', marginBottom: fs(6) }}>{numLabel}</p>}
+          <p style={{ fontSize: fs(16), color: '#fff', lineHeight: 1.2 }}>{title}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <div style={{ ...base, background: '#faf8f0' }} />
 }

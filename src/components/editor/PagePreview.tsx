@@ -38,7 +38,6 @@ interface FootnoteEntry {
   html: string
 }
 
-
 /** Extrai números de citação ([1], [2]…) de um trecho HTML. */
 function findCitations(html: string): number[] {
   const nums = [...html.matchAll(/\[(\d+)\]/g)].map(m => parseInt(m[1]))
@@ -104,7 +103,16 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
   }, [content, chapters, activeChapter?.id])
 
   // ---------------------------------------------------------------------------
-  // Paginação com extração de rodapés
+  // Paginação — motor baseado em scrollHeight (layout real do browser, como o Word)
+  //
+  // Em vez de somar offsetHeight+16 (aproximação imprecisa que ignora margens CSS,
+  // colapso de margens e tamanho mínimo de fonte do browser), adicionamos cada
+  // elemento ao medidor e verificamos o scrollHeight real depois de cada adição.
+  // O browser faz o layout completo — fonte, line-height, padding, margens — e
+  // reporta a altura real. Isso é exatamente o modelo do Word/InDesign.
+  //
+  // Margem de segurança: 1 cm (38 px a 96 dpi, escalado) abaixo do conteúdo,
+  // garantindo que texto nunca toque a linha de margem inferior.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!htmlParaPaginar || !medidorRef.current) {
@@ -112,97 +120,115 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
       return
     }
 
-    const structuredFootnotes = chapters.flatMap(c => c.footnotes ?? [])
-    const footnoteMap = new Map(structuredFootnotes.map(f => [f.num, f.content]))
-
-    // Compute global block offset for active chapter (for scroll sync)
-    let blockCount = 0
-    for (let i = 0; i < chapters.length; i++) {
-      const c = chapters[i]
-      if (i > 0) blockCount++ // HR separator
-      if (c.id === activeChapter?.id) { activeChapterStartBlockRef.current = blockCount; break }
-      const tmp = document.createElement('div')
-      tmp.innerHTML = c.content_html || ''
-      blockCount += tmp.children.length
-    }
-
     const medidor = medidorRef.current
-    medidor.style.width = `${larguraUtil}px`
-    medidor.style.fontSize = `${11 * scale}px`
-    medidor.style.lineHeight = '1.8'
-    medidor.style.fontFamily = fontCss
-    medidor.innerHTML = htmlParaPaginar
 
-    const nos = Array.from(medidor.childNodes)
-    const paginasGeradas: PaginaData[] = []
-    let alturaAcumulada = 0
-    let htmlAtual = ''
-    let blockNum = 0
-    let startBlock = 0
-    let chapterIdx = 0
-    let lastElHtml = ''
-    let lastElHeight = 0
-    let lastElTag = ''
+    const runLayout = () => {
+      if (!medidorRef.current) return
 
-    const finalizarPagina = (html: string, start: number, end: number) => {
-      const cits = findCitations(html)
-      const footnotes: FootnoteEntry[] = cits
-        .filter(n => footnoteMap.has(n))
-        .map(n => ({ num: n, html: footnoteMap.get(n)! }))
-      paginasGeradas.push({ html, startBlock: start, endBlock: end, footnotes, chapterIdx })
-    }
+      const structuredFootnotes = chapters.flatMap(c => c.footnotes ?? [])
+      const footnoteMap = new Map(structuredFootnotes.map(f => [f.num, f.content]))
 
-    for (const no of nos) {
-      if (!(no instanceof Element)) continue
-      const el = no as HTMLElement
-
-      if (el.tagName === 'HR') {
-        finalizarPagina(htmlAtual || '', startBlock, blockNum)
-        htmlAtual = ''
-        alturaAcumulada = 0
-        blockNum++
-        startBlock = blockNum
-        chapterIdx++
-        lastElHtml = ''
-        lastElHeight = 0
-        lastElTag = ''
-        continue
+      // Calcula offset global do capítulo ativo (para sincronizar scroll do cursor)
+      let blockCount = 0
+      for (let i = 0; i < chapters.length; i++) {
+        const c = chapters[i]
+        if (i > 0) blockCount++
+        if (c.id === activeChapter?.id) { activeChapterStartBlockRef.current = blockCount; break }
+        const tmp = document.createElement('div')
+        tmp.innerHTML = c.content_html || ''
+        blockCount += tmp.children.length
       }
 
-      const alturaEl = el.offsetHeight + 16
+      // Configura o medidor com os mesmos estilos da página real
+      medidor.style.width = `${larguraUtil}px`
+      medidor.style.fontSize = `${11 * scale}px`
+      medidor.style.lineHeight = '1.8'
+      medidor.style.fontFamily = fontCss
 
-      if (alturaAcumulada + alturaEl > alturaUtil && htmlAtual) {
-        // If the last element on this page is a heading, pull it to the next page
-        if (/^H[1-3]$/.test(lastElTag) && htmlAtual.length > lastElHtml.length) {
-          finalizarPagina(htmlAtual.slice(0, -lastElHtml.length), startBlock, blockNum - 2)
-          htmlAtual = lastElHtml + el.outerHTML
-          alturaAcumulada = lastElHeight + alturaEl
-          startBlock = blockNum - 1
-        } else {
-          finalizarPagina(htmlAtual, startBlock, blockNum - 1)
-          htmlAtual = el.outerHTML
-          alturaAcumulada = alturaEl
+      // Parseia todo o HTML de uma vez para obter os nós DOM, depois limpa o medidor
+      medidor.innerHTML = htmlParaPaginar
+      const allNodes = Array.from(medidor.childNodes)
+      medidor.innerHTML = ''
+
+      // Margem de segurança: 1 cm abaixo do texto (38 px a 96 dpi × escala)
+      const SAFETY = 38 * scale
+      const pageLimit = alturaUtil - SAFETY
+
+      const paginasGeradas: PaginaData[] = []
+      let htmlAtual = ''
+      let blockNum = 0
+      let startBlock = 0
+      let chapterIdx = 0
+      let lastElHtml = ''
+      let lastElTag = ''
+
+      const finalizarPagina = (html: string, start: number, end: number) => {
+        const cits = findCitations(html)
+        const footnotes: FootnoteEntry[] = cits
+          .filter(n => footnoteMap.has(n))
+          .map(n => ({ num: n, html: footnoteMap.get(n)! }))
+        paginasGeradas.push({ html, startBlock: start, endBlock: end, footnotes, chapterIdx })
+      }
+
+      for (const no of allNodes) {
+        if (!(no instanceof Element)) continue
+        const el = no as HTMLElement
+
+        if (el.tagName === 'HR') {
+          finalizarPagina(htmlAtual || '', startBlock, blockNum)
+          htmlAtual = ''
+          medidor.innerHTML = ''
+          blockNum++
           startBlock = blockNum
+          chapterIdx++
+          lastElHtml = ''
+          lastElTag = ''
+          continue
         }
-        lastElHtml = el.outerHTML
-        lastElHeight = alturaEl
-        lastElTag = el.tagName
-      } else {
-        htmlAtual += el.outerHTML
-        alturaAcumulada += alturaEl
-        lastElHtml = el.outerHTML
-        lastElHeight = alturaEl
-        lastElTag = el.tagName
+
+        // Adiciona o elemento ao medidor e mede a altura real resultante
+        const clone = el.cloneNode(true) as HTMLElement
+        medidor.appendChild(clone)
+
+        if (medidor.scrollHeight > pageLimit && htmlAtual) {
+          // Elemento ultrapassa o limite — remove e fecha a página atual
+          medidor.removeChild(clone)
+
+          // Anti-orphan: título isolado no fim da página → puxa para a próxima
+          if (/^H[1-3]$/.test(lastElTag) && htmlAtual.length > lastElHtml.length) {
+            const semTitulo = htmlAtual.slice(0, -lastElHtml.length)
+            finalizarPagina(semTitulo, startBlock, blockNum - 2)
+            htmlAtual = lastElHtml + el.outerHTML
+            startBlock = blockNum - 1
+          } else {
+            finalizarPagina(htmlAtual, startBlock, blockNum - 1)
+            htmlAtual = el.outerHTML
+            startBlock = blockNum
+          }
+          // Reinicia o medidor com o conteúdo da nova página
+          medidor.innerHTML = htmlAtual
+          lastElHtml = el.outerHTML
+          lastElTag = el.tagName
+        } else {
+          htmlAtual += el.outerHTML
+          lastElHtml = el.outerHTML
+          lastElTag = el.tagName
+        }
+        blockNum++
       }
-      blockNum++
+
+      if (htmlAtual) finalizarPagina(htmlAtual, startBlock, blockNum - 1)
+      if (paginasGeradas.length === 0) {
+        paginasGeradas.push({ html: '', startBlock: 0, endBlock: 0, footnotes: [], chapterIdx: 0 })
+      }
+
+      setPaginas(paginasGeradas)
     }
 
-    if (htmlAtual) finalizarPagina(htmlAtual, startBlock, blockNum - 1)
-    if (paginasGeradas.length === 0) {
-      paginasGeradas.push({ html: '', startBlock: 0, endBlock: 0, footnotes: [], chapterIdx: 0 })
-    }
+    // Aguarda as fontes carregarem antes de medir — elimina erros de tamanho com web fonts
+    document.fonts.ready.then(runLayout)
 
-    setPaginas(paginasGeradas)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [htmlParaPaginar, format, alturaUtil, larguraUtil, scale, fontCss, activeChapter?.footnotes, chapters])
 
   // ---------------------------------------------------------------------------
@@ -518,8 +544,10 @@ const Pagina = forwardRef<HTMLDivElement, PaginaProps>(function Pagina(
     if (idx >= 0 && onBlockClick) onBlockClick(startBlock + idx)
   }
 
+  // Área reservada para rodapés: separador (8px) + gap de 1cm (38px) + ~24px por nota
+  // O gap de 1cm garante que o texto principal nunca toque a área de rodapé
   const fnHeight = footnotes.length > 0
-    ? (footnotes.length * 13 * scale) + (8 * scale)  // estimativa: ~13px por nota + separador
+    ? (46 * scale) + (footnotes.length * 24 * scale)
     : 0
 
   return (
@@ -559,7 +587,7 @@ const Pagina = forwardRef<HTMLDivElement, PaginaProps>(function Pagina(
             right: margins.right * scale,
             borderTop: `${0.5 * scale}px solid #bbb`,
             paddingTop: 4 * scale,
-            background: '#faf8f0',  // cobre eventual overflow do conteúdo
+            background: '#faf8f0',
           }}
         >
           {footnotes.map(fn => (
