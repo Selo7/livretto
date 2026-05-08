@@ -87,12 +87,14 @@ export const useEditorStore = create<EditorState>()(
           return {
             ...c,
             footnotes: ('footnotes' in c && (c.footnotes?.length ?? 0) > 0) ? c.footnotes : existing.footnotes,
-            opening_style:          'opening_style'          in c ? c.opening_style          : existing.opening_style,
-            opening_image:          'opening_image'          in c ? c.opening_image          : existing.opening_image,
-            opening_epigraph:       'opening_epigraph'       in c ? c.opening_epigraph       : existing.opening_epigraph,
-            opening_epigraph_author:'opening_epigraph_author'in c ? c.opening_epigraph_author: existing.opening_epigraph_author,
-            numbered:               'numbered'               in c ? c.numbered               : existing.numbered,
-            chapter_num:            'chapter_num'            in c ? c.chapter_num            : existing.chapter_num,
+            // Prefer Supabase value when present and non-null; fall back to localStorage
+            // when Supabase returns null (column exists but UPDATE failed or not yet set).
+            opening_style:          'opening_style'          in c ? (c.opening_style          ?? existing.opening_style)          : existing.opening_style,
+            opening_image:          'opening_image'          in c ? (c.opening_image          ?? existing.opening_image)          : existing.opening_image,
+            opening_epigraph:       'opening_epigraph'       in c ? (c.opening_epigraph       ?? existing.opening_epigraph)       : existing.opening_epigraph,
+            opening_epigraph_author:'opening_epigraph_author'in c ? (c.opening_epigraph_author?? existing.opening_epigraph_author): existing.opening_epigraph_author,
+            numbered:               'numbered'               in c ? (c.numbered               ?? existing.numbered)               : existing.numbered,
+            chapter_num:            'chapter_num'            in c ? (c.chapter_num            ?? existing.chapter_num)            : existing.chapter_num,
           }
         })
         return {

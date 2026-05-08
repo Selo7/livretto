@@ -97,7 +97,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
     return chapters
       .map((c, i) => {
         const html = c.id === activeChapter?.id ? content : (c.content_html || '')
-        return (i === 0 ? '' : '<hr/>') + html
+        return (i === 0 ? '' : '<hr data-chapter-sep="true"/>') + html
       })
       .join('')
   }, [content, chapters, activeChapter?.id])
@@ -174,7 +174,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
         if (!(no instanceof Element)) continue
         const el = no as HTMLElement
 
-        if (el.tagName === 'HR') {
+        if (el.tagName === 'HR' && el.dataset.chapterSep === 'true') {
           finalizarPagina(htmlAtual || '', startBlock, blockNum)
           htmlAtual = ''
           medidor.innerHTML = ''

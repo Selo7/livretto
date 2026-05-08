@@ -101,7 +101,7 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
     const htmlContent = chapters.length > 0
       ? chapters.map((c, i) => {
           const html = c.id === activeChapter?.id ? (c.content_html || '') : (c.content_html || '')
-          return (i === 0 ? '' : '<hr/>') + html
+          return (i === 0 ? '' : '<hr data-chapter-sep="true"/>') + html
         }).join('')
       : ''
 
@@ -144,7 +144,7 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
         if (!(no instanceof Element)) continue
         const el = no as HTMLElement
 
-        if (el.tagName === 'HR') {
+        if (el.tagName === 'HR' && el.dataset.chapterSep === 'true') {
           if (htmlAtual) finalizarPagina(htmlAtual)
           htmlAtual = ''
           medidor.innerHTML = ''
