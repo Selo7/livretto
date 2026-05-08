@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, forwardRef, useEffect, useMemo, useRef, useState } from 'react'
-import { PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { PanelRightClose, PanelRightOpen, ZoomIn, ZoomOut } from 'lucide-react'
 import { useEditorStore } from '@/lib/store/editorStore'
 import { BookFormat } from '@/types/book'
 import { AreaLabel } from '@/components/ui/area-label'
@@ -76,6 +76,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
 
   const fontCss = getFontById(activeBook?.body_font).css
   const [paginas, setPaginas] = useState<PaginaData[]>([])
+  const [zoomFactor, setZoomFactor] = useState(1.0)
   const medidorRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -85,7 +86,12 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
   const format = activeBook?.format ?? '14x21'
   const dims = formatDimensions[format]
   const margins = formatMargins[format]
-  const scale = Math.min(0.85, (width * 0.88) / dims.width)
+  const baseScale = Math.min(0.85, (width * 0.88) / dims.width)
+  const scale = baseScale * zoomFactor
+
+  const ZOOM_STEPS = [0.5, 0.65, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0]
+  const zoomIn  = () => setZoomFactor(v => ZOOM_STEPS.find(z => z > v + 0.01) ?? v)
+  const zoomOut = () => setZoomFactor(v => [...ZOOM_STEPS].reverse().find(z => z < v - 0.01) ?? v)
 
   const larguraPagina = dims.width * scale
   const alturaPagina = dims.height * scale
@@ -292,6 +298,24 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
           </div>
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground mr-1">{dims.label}</span>
+
+            {/* Zoom controls */}
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={zoomOut}
+              disabled={zoomFactor <= ZOOM_STEPS[0]} title="Reduzir zoom">
+              <ZoomOut size={11} />
+            </Button>
+            <button
+              onClick={() => setZoomFactor(1.0)}
+              className="text-[10px] text-muted-foreground hover:text-foreground min-w-[34px] text-center tabular-nums transition-colors"
+              title="Resetar zoom"
+            >
+              {Math.round(zoomFactor * 100)}%
+            </button>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={zoomIn}
+              disabled={zoomFactor >= ZOOM_STEPS[ZOOM_STEPS.length - 1]} title="Aumentar zoom">
+              <ZoomIn size={11} />
+            </Button>
+
             <ConfiguracaoLivro />
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={togglePreview} title="Ocultar visualizador">
               <PanelRightClose size={14} />
@@ -299,10 +323,11 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
           </div>
         </div>
 
+        {/* Scroll area — overflow-x: auto permite rolagem horizontal quando zoom > 100% */}
         <div
           ref={scrollAreaRef}
           tabIndex={0}
-          className="flex-1 overflow-y-auto flex flex-col items-center py-8 px-4 gap-8 outline-none"
+          className="flex-1 overflow-auto outline-none"
           onClick={() => scrollAreaRef.current?.focus()}
           onKeyDown={(e) => {
             if (!onKeyCommand) return
@@ -311,6 +336,10 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
             else if (e.key === 'Delete') { e.preventDefault(); onKeyCommand('delete') }
           }}
         >
+          {/* Wrapper interno — min-w-full garante centralização quando páginas cabem;
+              w-fit expande para rolagem horizontal quando zoom aumenta as páginas */}
+          <div className="flex flex-col items-center py-8 px-4 gap-8" style={{ minWidth: '100%', width: 'fit-content', margin: '0 auto' }}>
+
           {activeBook?.cover_url && (
             <PaginaCapa
               coverUrl={activeBook.cover_url}
@@ -372,6 +401,8 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
               altura={alturaPagina}
             />
           )}
+
+          </div>{/* end inner wrapper */}
         </div>
 
         <div className="px-4 py-2 border-t border-border bg-background/50 shrink-0 flex items-center justify-between">
