@@ -8,10 +8,16 @@ export async function fetchBooks(): Promise<Book[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('books')
-    .select('*')
+    .select('*, chapters(word_count)')
     .order('updated_at', { ascending: false })
   if (error) throw error
-  return (data ?? []) as Book[]
+  // Compute word_count as sum of chapters (the books.word_count column is stale)
+  return (data ?? []).map((b: Record<string, unknown>) => {
+    const { chapters, ...book } = b
+    const word_count = ((chapters as { word_count: number }[]) ?? [])
+      .reduce((sum, c) => sum + (c.word_count ?? 0), 0)
+    return { ...book, word_count } as Book
+  })
 }
 
 export async function fetchBook(id: string): Promise<Book | null> {

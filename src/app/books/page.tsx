@@ -18,6 +18,24 @@ const C = {
   accent: '#c8720a', accentLight: '#e08c2a',
 }
 
+// Target word count for a complete book (adjustable per genre)
+const WORDS_TARGET = 60_000
+
+function getProgress(words: number) {
+  const pct = Math.min(Math.round((words / WORDS_TARGET) * 100), 100)
+  let message: string
+  if (words === 0)      message = 'A primeira palavra muda tudo. Comece agora.'
+  else if (pct < 10)   message = 'Os primeiros passos! A história está nascendo.'
+  else if (pct < 25)   message = 'Ótimo início. O ritmo está bom!'
+  else if (pct < 50)   message = 'Já escrevemos muito. Vamos manter o foco!'
+  else if (pct < 65)   message = 'Mais da metade! Não para agora.'
+  else if (pct < 80)   message = 'Começamos, mas ainda não terminamos. Falta pouco!'
+  else if (pct < 95)   message = 'A reta final! Você está quase lá.'
+  else if (pct < 100)  message = 'Finalíssimo. Hora do último empurrão!'
+  else                 message = 'Manuscrito completo. Pronto para publicar!'
+  return { pct, message }
+}
+
 const FORMAT_DIM: Record<BookFormat, { w: number; h: number; label: string }> = {
   '14x21': { w: 42, h: 63, label: 'Livro' },
   '15x23': { w: 45, h: 69, label: 'Premium' },
@@ -255,16 +273,42 @@ export default function BooksPage() {
                         }}>
                           {dim.label}
                         </span>
-                        <span style={{
-                          fontSize: 10, padding: '2px 8px', borderRadius: 10,
-                          background: C.surface, color: C.muted,
-                          border: `1px solid ${C.border}`,
-                        }}>
-                          {book.word_count.toLocaleString('pt-BR')} palavras
-                        </span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Progress */}
+                  {(() => {
+                    const { pct, message } = getProgress(book.word_count)
+                    return (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                          <span style={{ fontSize: 10, color: C.muted }}>
+                            {book.word_count.toLocaleString('pt-BR')} / {WORDS_TARGET.toLocaleString('pt-BR')} palavras
+                          </span>
+                          <span style={{ fontSize: 10, color: pct >= 100 ? C.accentLight : C.muted, fontWeight: 600 }}>
+                            {pct}%
+                          </span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 4, background: C.border, overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${pct}%`,
+                            borderRadius: 4,
+                            background: pct >= 100
+                              ? `linear-gradient(90deg, ${C.accent}, ${C.accentLight})`
+                              : pct >= 65
+                              ? `linear-gradient(90deg, ${C.accent}88, ${C.accent})`
+                              : `${C.accent}55`,
+                            transition: 'width 0.6s ease',
+                          }} />
+                        </div>
+                        <p style={{ fontSize: 10, color: C.muted, marginTop: 5, fontStyle: 'italic', lineHeight: 1.4 }}>
+                          {message}
+                        </p>
+                      </div>
+                    )
+                  })()}
 
                   {/* Date */}
                   <p style={{ fontSize: 11, color: C.faint }}>
