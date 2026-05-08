@@ -1,6 +1,7 @@
 'use client'
 
-import { BookOpen, Map, LayoutGrid, Moon, Sun, Maximize2, Sparkles, Save, Rocket, LogOut } from 'lucide-react'
+import { BookOpen, Map, LayoutGrid, Moon, Sun, Maximize2, Sparkles, Save, Rocket, LogOut, ChevronDown, Library, Plus } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Separator } from '@/components/ui/separator'
@@ -25,6 +26,7 @@ export function Header() {
   const [isDark, setIsDark] = useState(false)
   const [finalizarAberto, setFinalizarAberto] = useState(false)
   const [showFlip, setShowFlip] = useState(false)
+  const [bookMenuOpen, setBookMenuOpen] = useState(false)
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
 
@@ -42,12 +44,49 @@ export function Header() {
 
   return (
     <header className="h-12 border-b border-border bg-background flex items-center px-4 gap-4 shrink-0 z-50">
-      <div className="flex items-center gap-2 min-w-40">
-        <BookOpen size={18} className="text-primary" />
-        <span className="font-semibold text-sm truncate max-w-36">
-          {activeBook?.title ?? 'Book Projector'}
-        </span>
+      {/* Book switcher */}
+      <div className="relative flex items-center min-w-40">
+        <button
+          onClick={() => setBookMenuOpen(v => !v)}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-accent transition-colors"
+        >
+          <BookOpen size={16} className="text-primary shrink-0" />
+          <span className="font-semibold text-sm truncate max-w-32">
+            {activeBook?.title ?? 'Livretto'}
+          </span>
+          <ChevronDown size={12} className={cn('text-muted-foreground shrink-0 transition-transform', bookMenuOpen && 'rotate-180')} />
+        </button>
         <AreaLabel>Menu Superior</AreaLabel>
+
+        {bookMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setBookMenuOpen(false)} />
+            <div className="absolute top-full left-0 mt-1.5 z-50 bg-background border border-border rounded-xl shadow-xl py-1 w-56 overflow-hidden">
+              {activeBook && (
+                <div className="px-3 py-2.5 border-b border-border">
+                  <p className="text-xs font-semibold text-foreground truncate">{activeBook.title}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Livro atual</p>
+                </div>
+              )}
+              <Link
+                href="/books"
+                onClick={() => setBookMenuOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+              >
+                <Library size={14} className="text-muted-foreground" />
+                Meus livros
+              </Link>
+              <Link
+                href="/new"
+                onClick={() => setBookMenuOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+              >
+                <Plus size={14} className="text-muted-foreground" />
+                Novo livro
+              </Link>
+            </div>
+          </>
+        )}
       </div>
 
       <Separator orientation="vertical" className="h-5" />
