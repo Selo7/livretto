@@ -105,8 +105,13 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
         }).join('')
       : ''
 
-    const allFootnotes = chapters.flatMap(c => c.footnotes ?? [])
-    const footnoteMap = new Map(allFootnotes.map(f => [f.num, f.content]))
+    const footnoteMap = new Map<number, string>()
+    for (const c of chapters) {
+      const fns = c.id === activeChapter?.id
+        ? (activeChapter.footnotes ?? c.footnotes ?? [])
+        : (c.footnotes ?? [])
+      for (const f of fns) footnoteMap.set(f.num, f.content)
+    }
     const medidor = medidorRef.current
 
     const runLayout = () => {
@@ -399,7 +404,7 @@ function PageRenderer({ item, pw, ph, margins, scale, fontCss, side }: {
           fontFamily: fontCss,
           color: '#1a1a1a',
         }}
-        dangerouslySetInnerHTML={{ __html: item.html }}
+        dangerouslySetInnerHTML={{ __html: item.html.replace(/\[(\d+)\]/g, '<sup style="color:#c8720a;font-size:0.72em;vertical-align:super;font-weight:600">[$1]</sup>') }}
       />
 
       {item.footnotes.length > 0 && (

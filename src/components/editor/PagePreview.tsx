@@ -131,8 +131,16 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
     const runLayout = () => {
       if (!medidorRef.current) return
 
-      const structuredFootnotes = chapters.flatMap(c => c.footnotes ?? [])
-      const footnoteMap = new Map(structuredFootnotes.map(f => [f.num, f.content]))
+      // Build footnote map — prefer activeChapter's fresh footnotes over stale chapters array
+      const footnoteMap = new Map<number, string>()
+      for (const c of chapters) {
+        const fns = c.id === activeChapter?.id
+          ? (activeChapter.footnotes ?? c.footnotes ?? [])
+          : (c.footnotes ?? [])
+        for (const f of fns) footnoteMap.set(f.num, f.content)
+      }
+      // Ensure active chapter footnotes are always included even if chapters array is stale
+      for (const f of activeChapter?.footnotes ?? []) footnoteMap.set(f.num, f.content)
 
       // Calcula offset global do capítulo ativo (para sincronizar scroll do cursor)
       let blockCount = 0
@@ -373,7 +381,13 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
                   fontCss={fontCss}
                   footnotes={p.footnotes}
                   startBlock={p.startBlock}
-                  activeCursorBlock={cursorBlockIndex}
+                  activeCursorBlock={activeChapterStartBlockRef.current + cursorBlockIndex}
+                  onBlockClick={(globalIdx) => {
+                    if (onBlockClick) {
+                      const localIdx = globalIdx - activeChapterStartBlockRef.current
+                      if (localIdx >= 0) onBlockClick(localIdx)
+                    }
+                  }}
                 />
               </Fragment>
             )
@@ -604,7 +618,9 @@ const Pagina = forwardRef<HTMLDivElement, PaginaProps>(function Pagina(
         }}
         onClick={handleContentClick}
         dangerouslySetInnerHTML={{
-          __html: html || '<p style="color:#bbb;font-style:italic">Seu texto aparecerá aqui...</p>',
+          __html: html
+            ? html.replace(/\[(\d+)\]/g, '<sup style="color:#c8720a;font-size:0.72em;vertical-align:super;font-weight:600">[$1]</sup>')
+            : '<p style="color:#bbb;font-style:italic">Seu texto aparecerá aqui...</p>',
         }}
       />
 
