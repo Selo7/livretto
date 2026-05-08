@@ -65,6 +65,7 @@ export function BookEditor() {
   const imageInputRef = useRef<HTMLInputElement>(null)
   const editorScrollRef = useRef<HTMLDivElement>(null)
   const activeChapterRef = useRef(activeChapter)
+  const pendingScrollBlockRef = useRef<number | null>(null)
   const supabase = useMemo(() => createClient(), [])
   const dragRef = useRef<{ dragging: boolean; startX: number; startWidth: number }>({
     dragging: false, startX: 0, startWidth: PREVIEW_DEFAULT,
@@ -218,8 +219,14 @@ export function BookEditor() {
     }
     // Delay so TipTap's own post-setContent scroll doesn't override ours
     requestAnimationFrame(() => {
-      editor.commands.focus('start')
-      if (editorScrollRef.current) editorScrollRef.current.scrollTop = 0
+      if (pendingScrollBlockRef.current !== null) {
+        const blockIdx = pendingScrollBlockRef.current
+        pendingScrollBlockRef.current = null
+        handleBlockClick(blockIdx)
+      } else {
+        editor.commands.focus('start')
+        if (editorScrollRef.current) editorScrollRef.current.scrollTop = 0
+      }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChapter?.id, editor])
@@ -356,6 +363,12 @@ export function BookEditor() {
     // Posiciona cursor sem roubar foco do browser (visualizador fica focado para comandos de teclado)
     editor.commands.setTextSelection(targetPos)
     editor.view.dispatch(editor.view.state.tr.scrollIntoView())
+  }
+
+  function handleChapterBlockClick(chapter: Chapter, localBlockIdx: number) {
+    pendingScrollBlockRef.current = localBlockIdx
+    setActiveChapter(chapter)
+    activeChapterRef.current = chapter
   }
 
   function handleKeyCommand(cmd: 'enter' | 'backspace' | 'delete') {
@@ -516,7 +529,7 @@ export function BookEditor() {
         </div>
       )}
 
-      <PagePreview content={htmlContent} width={previewWidth} cursorBlockIndex={cursorBlockIndex} onBlockClick={handleBlockClick} onKeyCommand={handleKeyCommand} />
+      <PagePreview content={htmlContent} width={previewWidth} cursorBlockIndex={cursorBlockIndex} onBlockClick={handleBlockClick} onChapterClick={handleChapterBlockClick} onKeyCommand={handleKeyCommand} />
 
       {intercapaTarget && (
         <IntercapaCapitulo

@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { type Editor } from '@tiptap/react'
 import { Search, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { getSearchState } from './extensions/SearchExtension'
+import { useEditorStore } from '@/lib/store/editorStore'
 
 interface BuscarTextoProps {
   editor: Editor | null
@@ -12,9 +13,22 @@ interface BuscarTextoProps {
 }
 
 export function BuscarTexto({ editor, open, onClose }: BuscarTextoProps) {
+  const { chapters, activeChapter, setActiveChapter } = useEditorStore()
   const [termo, setTermo] = useState('')
   const [info, setInfo] = useState({ total: 0, current: -1 })
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Outros capítulos que têm o termo buscado
+  const outrosCapitulos = useMemo(() => {
+    if (!termo || info.total > 0) return []
+    const lower = termo.toLowerCase()
+    return chapters
+      .filter(c => c.id !== activeChapter?.id && (c.content_html || '').toLowerCase().includes(lower))
+      .map(c => {
+        const matches = (c.content_html || '').toLowerCase().split(lower).length - 1
+        return { chapter: c, count: matches }
+      })
+  }, [termo, info.total, chapters, activeChapter?.id])
 
   useEffect(() => {
     if (open) {
@@ -26,12 +40,13 @@ export function BuscarTexto({ editor, open, onClose }: BuscarTextoProps) {
     }
   }, [open, editor])
 
+  // Re-executa busca quando o capítulo ativo muda (ex: após trocar de capítulo)
   useEffect(() => {
     if (!editor || !open) return
     editor.commands.setSearchTerm(termo)
     const s = getSearchState(editor)
     setInfo({ total: s.matches.length, current: s.currentIdx })
-  }, [termo, editor, open])
+  }, [termo, editor, open, activeChapter?.id])
 
   function scrollToMatch(ed: typeof editor) {
     if (!ed) return
@@ -63,12 +78,19 @@ export function BuscarTexto({ editor, open, onClose }: BuscarTextoProps) {
     if (e.key === 'Escape') onClose()
   }
 
+  function irParaCapitulo(chapter: Parameters<typeof setActiveChapter>[0]) {
+    if (!chapter) return
+    setActiveChapter(chapter)
+    onClose()
+  }
+
   if (!open) return null
 
   const semResultado = termo.length > 0 && info.total === 0
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-background shrink-0">
+    <div className="flex flex-col border-b border-border bg-background shrink-0">
+    <div className="flex items-center gap-2 px-3 py-1.5">
       <Search size={13} className="text-muted-foreground shrink-0" />
 
       <input
@@ -114,6 +136,24 @@ export function BuscarTexto({ editor, open, onClose }: BuscarTextoProps) {
           <X size={12} />
         </button>
       </div>
+    </div>
+
+    {/* Resultados em outros capítulos */}
+    {semResultado && outrosCapitulos.length > 0 && (
+      <div className="px-3 py-1.5 border-t border-border/50 flex flex-wrap gap-1.5 items-center">
+        <span className="text-[10px] text-muted-foreground shrink-0">Em outros capítulos:</span>
+        {outrosCapitulos.map(({ chapter, count }) => (
+          <button
+            key={chapter.id}
+            onMouseDown={e => { e.preventDefault(); irParaCapitulo(chapter) }}
+            className="text-[10px] text-primary hover:underline truncate max-w-[120px]"
+            title={`${chapter.title} — ${count} ocorrência${count !== 1 ? 's' : ''}`}
+          >
+            {chapter.title} ({count})
+          </button>
+        ))}
+      </div>
+    )}
     </div>
   )
 }

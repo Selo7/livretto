@@ -61,6 +61,7 @@ interface PagePreviewProps {
   width?: number
   cursorBlockIndex?: number
   onBlockClick?: (blockIndex: number) => void
+  onChapterClick?: (chapter: Chapter, localBlockIdx: number) => void
   onKeyCommand?: (cmd: 'enter' | 'backspace' | 'delete') => void
 }
 
@@ -68,9 +69,9 @@ interface PagePreviewProps {
 // Componente principal
 // ---------------------------------------------------------------------------
 
-export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBlockClick, onKeyCommand }: PagePreviewProps) {
+export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBlockClick, onChapterClick, onKeyCommand }: PagePreviewProps) {
   const {
-    activeBook, activeChapter, chapters,
+    activeBook, activeChapter, chapters, setActiveChapter: setActiveChapterStore,
     isFocusMode, isPreviewOpen, togglePreview,
   } = useEditorStore()
 
@@ -383,7 +384,18 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
                   startBlock={p.startBlock}
                   activeCursorBlock={activeChapterStartBlockRef.current + cursorBlockIndex}
                   onBlockClick={(globalIdx) => {
-                    if (onBlockClick) {
+                    const pageChapter = chapters[p.chapterIdx]
+                    if (pageChapter && pageChapter.id !== activeChapter?.id) {
+                      // Outro capítulo: calcula bloco local dentro desse capítulo
+                      const firstPage = paginas.find(pg => pg.chapterIdx === p.chapterIdx)
+                      const chapterStart = firstPage?.startBlock ?? 0
+                      const localIdx = Math.max(0, globalIdx - chapterStart)
+                      if (onChapterClick) {
+                        onChapterClick(pageChapter, localIdx)
+                      } else {
+                        setActiveChapterStore(pageChapter)
+                      }
+                    } else if (onBlockClick) {
                       const localIdx = globalIdx - activeChapterStartBlockRef.current
                       if (localIdx >= 0) onBlockClick(localIdx)
                     }
