@@ -209,12 +209,19 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
           // Elemento ultrapassa o limite — remove e fecha a página atual
           medidor.removeChild(clone)
 
-          // Anti-orphan: título isolado no fim da página → puxa para a próxima
+          // Anti-orphan: título no fim ou sozinho na página → mantém com o próximo elemento
           if (/^H[1-3]$/.test(lastElTag) && htmlAtual.length > lastElHtml.length) {
+            // Título no fim de página com conteúdo anterior — puxa título+próximo para a próxima
             const semTitulo = htmlAtual.slice(0, -lastElHtml.length)
             finalizarPagina(semTitulo, startBlock, blockNum - 2)
             htmlAtual = lastElHtml + el.outerHTML
             startBlock = blockNum - 1
+          } else if (/^H[1-3]$/.test(lastElTag)) {
+            // Título sozinho no início de página — força o próximo elemento na mesma página
+            htmlAtual += el.outerHTML
+            finalizarPagina(htmlAtual, startBlock, blockNum)
+            htmlAtual = ''
+            startBlock = blockNum + 1
           } else {
             finalizarPagina(htmlAtual, startBlock, blockNum - 1)
             htmlAtual = el.outerHTML
