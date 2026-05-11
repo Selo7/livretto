@@ -4,6 +4,9 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
+import TextStyle from '@tiptap/extension-text-style'
+import FontFamily from '@tiptap/extension-font-family'
+import FontSize from '@tiptap/extension-font-size'
 import { ResizableImage } from './extensions/ResizableImage'
 import Highlight from '@tiptap/extension-highlight'
 import CharacterCount from '@tiptap/extension-character-count'
@@ -102,6 +105,9 @@ export function BookEditor() {
       StarterKit,
       SearchExtension,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextStyle,
+      FontFamily,
+      FontSize,
       ResizableImage,
       Highlight,
       CharacterCount,
@@ -484,7 +490,7 @@ export function BookEditor() {
           </div>
         )}
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageFileChange} />
-        <Toolbar editor={editor} isDictating={isDictating} onToggleDictation={toggleDictation} onImportar={handleImportar} onTransformToChapter={handleTransformToChapter} onOpenRodape={() => setRodapeAberto(true)} onOpenBuscar={() => setBuscarAberto(true)} onInsertImage={handleInsertImage} />
+        <Toolbar editor={editor} isDictating={isDictating} onToggleDictation={toggleDictation} onImportar={handleImportar} onTransformToChapter={handleTransformToChapter} onOpenRodape={() => setRodapeAberto(true)} onOpenBuscar={() => setBuscarAberto(true)} onInsertImage={handleInsertImage} defaultFontId={activeBook?.body_font} />
         <BuscarTexto editor={editor} open={buscarAberto} onClose={() => setBuscarAberto(false)} />
 
         <div ref={editorScrollRef} className={cn(

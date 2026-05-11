@@ -215,7 +215,7 @@ export function ChapterSidebar({ onAddChapter, onSelectChapter }: ChapterSidebar
   if (isFocusMode) return null
 
   return (
-    <aside className="w-56 border-r border-border bg-background flex flex-col shrink-0">
+    <aside className="w-56 border-r border-border bg-background flex flex-col shrink-0 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-3 border-b border-border">
         <div className="flex items-center gap-1.5">
           <BookOpen size={13} className="text-muted-foreground" />

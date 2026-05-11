@@ -4,13 +4,18 @@ import { type Editor } from '@tiptap/react'
 import {
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   Heading1, Heading2, Heading3, Quote, List, ListOrdered, Mic, MicOff,
-  BookOpen, Scissors, Search, ImagePlus,
+  Search, ImagePlus, ChevronDown,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { ImportarArquivo, CapituloImportado } from './ImportarArquivo'
 import { ImportarAudio } from './ImportarAudio'
 import { AreaLabel } from '@/components/ui/area-label'
+import { BOOK_FONTS, getFontById } from '@/lib/fonts'
+import { useState, useRef, useEffect } from 'react'
+
+// Tamanhos adequados para tipografia editorial (pt)
+const BOOK_SIZES = ['8', '9', '10', '11', '12', '14', '16', '18', '24']
 
 interface ToolbarProps {
   editor: Editor | null
@@ -21,6 +26,7 @@ interface ToolbarProps {
   onOpenRodape: () => void
   onOpenBuscar: () => void
   onInsertImage: () => void
+  defaultFontId?: string
 }
 
 interface BtnProps {
@@ -81,13 +87,115 @@ function run(editor: Editor, fn: (e: Editor) => void) {
   }
 }
 
-export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, onTransformToChapter, onOpenRodape, onOpenBuscar, onInsertImage }: ToolbarProps) {
+// Dropdown genérico para fonte/tamanho
+function ToolbarSelect({ value, label, options, onChange, width }: {
+  value: string
+  label: string
+  options: { value: string; label: string }[]
+  onChange: (v: string) => void
+  width: number
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClickOut(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', onClickOut)
+    return () => document.removeEventListener('mousedown', onClickOut)
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative" style={{ width }}>
+      <button
+        type="button"
+        title={label}
+        onMouseDown={e => { e.preventDefault(); setOpen(v => !v) }}
+        className="flex items-center justify-between gap-0.5 h-7 w-full px-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+      >
+        <span className="truncate">{value}</span>
+        <ChevronDown size={10} className="shrink-0 opacity-50" />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-0.5 z-50 bg-background border border-border rounded-lg shadow-xl py-1 max-h-52 overflow-y-auto" style={{ minWidth: width }}>
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onMouseDown={e => { e.preventDefault(); onChange(opt.value); setOpen(false) }}
+              className={cn(
+                'w-full text-left px-3 py-1 text-xs hover:bg-accent transition-colors',
+                opt.value === value && 'bg-accent/60 font-medium text-foreground'
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, onTransformToChapter, onOpenRodape, onOpenBuscar, onInsertImage, defaultFontId }: ToolbarProps) {
   if (!editor) return null
+
+  const defaultFont = getFontById(defaultFontId)
+
+  // Fonte ativa: lê o mark do editor, cai no padrão do livro se não houver mark
+  const activeFontCss: string = editor.getAttributes('textStyle').fontFamily ?? defaultFont.css
+  const activeFont = BOOK_FONTS.find(f => f.css === activeFontCss) ?? defaultFont
+
+  // Tamanho ativo: lê mark ou cai em 11pt (padrão editorial)
+  const rawSize: string = editor.getAttributes('textStyle').fontSize ?? '11pt'
+  const activeSize = rawSize.replace('pt', '')
+
+  function handleFontChange(fontId: string) {
+    const font = BOOK_FONTS.find(f => f.id === fontId)
+    if (!font) return
+    if (fontId === defaultFontId) {
+      editor.chain().focus().unsetFontFamily().run()
+    } else {
+      editor.chain().focus().setFontFamily(font.css).run()
+    }
+  }
+
+  function handleSizeChange(size: string) {
+    const pt = `${size}pt`
+    if (size === '11') {
+      editor.chain().focus().unsetFontSize().run()
+    } else {
+      editor.chain().focus().setFontSize(pt).run()
+    }
+  }
+
+  const fontOptions = BOOK_FONTS.map(f => ({ value: f.id, label: f.name }))
+  const sizeOptions = BOOK_SIZES.map(s => ({ value: s, label: `${s}pt` }))
 
   return (
     <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-border bg-background/80 backdrop-blur-sm flex-wrap">
       <AreaLabel className="mr-1">Barra de Formatação</AreaLabel>
-      <Separator orientation="vertical" className="h-5 mr-1" />
+
+      {/* Fonte */}
+      <ToolbarSelect
+        value={activeFont.name}
+        label="Família da fonte"
+        options={fontOptions}
+        onChange={handleFontChange}
+        width={96}
+      />
+
+      {/* Tamanho */}
+      <ToolbarSelect
+        value={`${activeSize}pt`}
+        label="Tamanho da fonte"
+        options={sizeOptions}
+        onChange={handleSizeChange}
+        width={56}
+      />
+
+      <Separator orientation="vertical" className="h-5 mx-1" />
 
       {/* Headings */}
       <Btn icon={<Heading1 size={14}/>} label="Título (H1)"
