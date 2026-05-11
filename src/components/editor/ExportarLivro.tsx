@@ -166,6 +166,8 @@ function buildReviewHtml(
   author: string,
   fontId: string | undefined,
   customFonts: { name: string; dataUrl: string }[],
+  coverUrl?: string,
+  backCoverUrl?: string,
 ): string {
   const font = getFontById(fontId)
   const googleImport = font.google
@@ -174,6 +176,13 @@ function buildReviewHtml(
   const customFontFaces = customFonts
     .map(f => `@font-face{font-family:'${f.name}';src:url('${f.dataUrl}')}`)
     .join('\n')
+
+  const coverHtml = coverUrl
+    ? `<div class="cover-page"><img src="${coverUrl}" alt="Capa"/></div>`
+    : ''
+  const backCoverHtml = backCoverUrl
+    ? `<div class="cover-page"><img src="${backCoverUrl}" alt="Contracapa"/></div>`
+    : ''
 
   const chaptersHtml = chapters.map((ch, i) => {
     const content = (ch.content_html || '').replace(/<hr[^>]*>/gi, '<div class="page-break-hint">✂ quebra de página</div>')
@@ -192,8 +201,14 @@ ${googleImport}
 <style>
 ${customFontFaces}
 @page{size:A4;margin:2.5cm 3cm}
+@page cover{size:A4;margin:0}
 *{box-sizing:border-box}
 body{font-family:${font.css};font-size:11pt;line-height:1.8;color:#1a1a1a;background:#fff}
+.cover-page{
+  page:cover;break-after:page;
+  width:210mm;height:297mm;margin:0;overflow:hidden;
+}
+.cover-page img{width:100%;height:100%;object-fit:cover;display:block}
 .review-notice{
   background:#fffbeb;border:1.5px solid #f59e0b;border-radius:6px;
   padding:12px 16px;margin-bottom:2em;
@@ -215,9 +230,11 @@ ul,ol{margin:.5em 0 .5em 1.5em}
 strong{font-weight:700}
 em{font-style:italic}
 .page-break-hint{color:#bbb;font-size:8pt;text-align:center;margin:.5em 0;letter-spacing:.05em}
+body::before{content:'RASCUNHO';position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:80pt;font-weight:900;color:rgba(0,0,0,0.04);white-space:nowrap;pointer-events:none;z-index:0}
 </style>
 </head>
 <body>
+${coverHtml}
 <div class="review-notice">
   <strong>⚠ Versão de revisão — não é o layout final do livro</strong>
   Este PDF foi gerado para facilitar a revisão do conteúdo. A diagramação real, com paginação, tipografia e capas, estará disponível ao finalizar o livro no Libretto.
@@ -227,6 +244,7 @@ em{font-style:italic}
   ${author ? `<p>${author}</p>` : ''}
 </div>
 ${chaptersHtml}
+${backCoverHtml}
 <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),400))</script>
 </body>
 </html>`
@@ -396,6 +414,8 @@ export function ExportarLivro() {
           activeBook!.author,
           activeBook!.body_font,
           activeBook!.custom_fonts ?? [],
+          activeBook!.cover_url,
+          activeBook!.back_cover_url,
         )
       }
       const win = window.open('', '_blank')
