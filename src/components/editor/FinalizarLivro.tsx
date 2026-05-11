@@ -7,7 +7,11 @@ import { useEditorStore } from '@/lib/store/editorStore'
 import { BookCategory, BookStatus, SUBCATEGORIAS } from '@/types/book'
 import { cn } from '@/lib/utils'
 import { getFontById } from '@/lib/fonts'
-import { paginarParaExport, buildReviewHtml, buildPrintHtml, buildEpub } from '@/lib/exportBook'
+import { paginarParaExport, buildPrintHtml, buildEpub } from '@/lib/exportBook'
+import { createClient } from '@/lib/supabase/client'
+
+const OWNER_EMAIL = 'brunobrm@gmail.com'
+const FREE_PLAN_LIMIT = 1
 
 const CATEGORIAS: { id: BookCategory; nome: string; descricao: string; cor: string }[] = [
   { id: 'ficcao',         nome: 'Ficção',           descricao: 'Romance, thriller, fantasia…',      cor: '#6366f1' },
@@ -28,6 +32,8 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
 
   const [step, setStep] = useState(0)
   const [exportLoading, setExportLoading] = useState<'pdf' | 'epub' | null>(null)
+  const [publishing, setPublishing] = useState(false)
+  const [quotaExceeded, setQuotaExceeded] = useState(false)
   const [categoria, setCategoria] = useState<BookCategory | ''>(activeBook?.category ?? '')
   const [subcategoria, setSubcategoria] = useState(activeBook?.subcategory ?? '')
   const [keywords, setKeywords] = useState<string[]>(activeBook?.keywords ?? [])
@@ -58,15 +64,9 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
     if (!activeBook) return
     setExportLoading('pdf')
     try {
-      const isPublished = activeBook.status === 'publicado'
       const font = getFontById(activeBook.body_font)
-      let html: string
-      if (isPublished) {
-        const pages = await paginarParaExport(chapters, activeBook.format, font.css)
-        html = buildPrintHtml(pages, activeBook.title, activeBook.format, activeBook.body_font, activeBook.custom_fonts ?? [], activeBook.cover_url, activeBook.back_cover_url)
-      } else {
-        html = buildReviewHtml(chapters, activeBook.title, activeBook.author, activeBook.body_font, activeBook.custom_fonts ?? [], activeBook.cover_url, activeBook.back_cover_url)
-      }
+      const pages = await paginarParaExport(chapters, activeBook.format, font.css)
+      const html = buildPrintHtml(pages, activeBook.title, activeBook.format, activeBook.body_font, activeBook.custom_fonts ?? [], activeBook.cover_url, activeBook.back_cover_url)
       const win = window.open('', '_blank')
       if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
       win.document.write(html)
@@ -93,7 +93,30 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
     }
   }
 
-  function salvarEPublicar(status: BookStatus) {
+  async function salvarEPublicar(status: BookStatus) {
+    if (status === 'publicado') {
+      setPublishing(true)
+      setQuotaExceeded(false)
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user && user.email !== OWNER_EMAIL) {
+          const { count } = await supabase
+            .from('books')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('status', 'publicado')
+            .neq('id', activeBook?.id ?? '')
+          if ((count ?? 0) >= FREE_PLAN_LIMIT) {
+            setQuotaExceeded(true)
+            setPublishing(false)
+            return
+          }
+        }
+      } catch { /* offline ou sem conta — permite localmente */ }
+      setPublishing(false)
+    }
+
     updateBook({
       category: categoria as BookCategory,
       subcategory: subcategoria,
@@ -327,10 +350,10 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
                     <FileText size={14} className="text-muted-foreground shrink-0 mt-0.5" />
                     <div>
                       <p className="text-xs font-medium">
-                        {exportLoading === 'pdf' ? 'Gerando...' : 'PDF para impressão'}
+                        {exportLoading === 'pdf' ? 'Paginando...' : 'PDF para impressão'}
                       </p>
                       <p className="text-[10px] text-muted-foreground leading-snug">
-                        {activeBook?.status === 'publicado' ? 'Layout final diagramado' : 'Versão de revisão A4'}
+                        Layout final com capa e diagramação
                       </p>
                     </div>
                   </button>
@@ -352,18 +375,30 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
                 </div>
               </div>
 
+              {/* Aviso de quota */}
+              {quotaExceeded && (
+                <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950 p-4">
+                  <p className="text-xs font-medium text-red-800 dark:text-red-300 mb-1">Limite do plano gratuito atingido</p>
+                  <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
+                    Você já tem um livro publicado. Faça upgrade para o plano Pro para publicar livros ilimitados.
+                  </p>
+                </div>
+              )}
+
               {/* Ações finais */}
               <div className="space-y-2 pt-1">
                 <Button
                   className="w-full gap-2"
+                  disabled={publishing}
                   onClick={() => salvarEPublicar('publicado')}
                 >
                   <Rocket size={14} />
-                  Marcar como pronto para publicação
+                  {publishing ? 'Verificando...' : 'Marcar como pronto para publicação'}
                 </Button>
                 <Button
                   variant="outline"
                   className="w-full"
+                  disabled={publishing}
                   onClick={() => salvarEPublicar('revisao')}
                 >
                   Salvar e continuar revisando
