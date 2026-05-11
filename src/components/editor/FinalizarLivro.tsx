@@ -7,7 +7,7 @@ import { useEditorStore } from '@/lib/store/editorStore'
 import { BookCategory, BookStatus, SUBCATEGORIAS } from '@/types/book'
 import { cn } from '@/lib/utils'
 import { getFontById } from '@/lib/fonts'
-import { paginarParaExport, buildPrintHtml, buildEpub } from '@/lib/exportBook'
+import { paginarParaExport, buildPrintHtml, buildEpub, exportarPdfServidor } from '@/lib/exportBook'
 import { createClient } from '@/lib/supabase/client'
 
 const OWNER_EMAIL = 'brunobrm@gmail.com'
@@ -67,10 +67,10 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
       const font = getFontById(activeBook.body_font)
       const pages = await paginarParaExport(chapters, activeBook.format, font.css)
       const html = buildPrintHtml(pages, activeBook.title, activeBook.format, activeBook.body_font, activeBook.custom_fonts ?? [], activeBook.cover_url, activeBook.back_cover_url)
-      const win = window.open('', '_blank')
-      if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
-      win.document.write(html)
-      win.document.close()
+      await exportarPdfServidor(html, activeBook.title)
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : 'Erro ao gerar PDF')
     } finally {
       setExportLoading(null)
     }
@@ -350,7 +350,7 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
                     <FileText size={14} className="text-muted-foreground shrink-0 mt-0.5" />
                     <div>
                       <p className="text-xs font-medium">
-                        {exportLoading === 'pdf' ? 'Paginando...' : 'PDF para impressão'}
+                        {exportLoading === 'pdf' ? 'Gerando PDF...' : 'PDF para impressão'}
                       </p>
                       <p className="text-[10px] text-muted-foreground leading-snug">
                         Layout final com capa e diagramação

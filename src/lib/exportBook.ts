@@ -354,6 +354,30 @@ ${coverHtml}${pagesHtml}${backCoverHtml}
 }
 
 // ---------------------------------------------------------------------------
+// Helper: envia HTML para o servidor Puppeteer e baixa o PDF resultante
+// ---------------------------------------------------------------------------
+export async function exportarPdfServidor(html: string, filename: string): Promise<void> {
+  const res = await fetch('/api/export/pdf', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ html, filename }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || `Erro HTTP ${res.status}`)
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${filename || 'livro'}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+// ---------------------------------------------------------------------------
 // EPUB
 // ---------------------------------------------------------------------------
 export async function buildEpub(

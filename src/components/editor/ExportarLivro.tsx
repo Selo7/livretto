@@ -6,12 +6,12 @@ import { getFontById } from '@/lib/fonts'
 import { Button } from '@/components/ui/button'
 import { Download, FileText, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { paginarParaExport, buildReviewHtml, buildPrintHtml } from '@/lib/exportBook'
+import { paginarParaExport, buildReviewHtml, buildPrintHtml, exportarPdfServidor } from '@/lib/exportBook'
 
 export function ExportarLivro() {
   const { activeBook, chapters } = useEditorStore()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loadingMsg, setLoadingMsg] = useState<string | null>(null)
 
   if (!activeBook) return null
 
@@ -19,12 +19,12 @@ export function ExportarLivro() {
 
   async function handlePdf() {
     setMenuOpen(false)
-    setLoading(true)
     try {
       const font = getFontById(activeBook!.body_font)
       let html: string
+
       if (isPublished) {
-        const font = getFontById(activeBook!.body_font)
+        setLoadingMsg('Paginando...')
         const pages = await paginarParaExport(chapters, activeBook!.format, font.css)
         html = buildPrintHtml(
           pages,
@@ -36,6 +36,7 @@ export function ExportarLivro() {
           activeBook!.back_cover_url,
         )
       } else {
+        setLoadingMsg('Gerando...')
         html = buildReviewHtml(
           chapters,
           activeBook!.title,
@@ -46,12 +47,14 @@ export function ExportarLivro() {
           activeBook!.back_cover_url,
         )
       }
-      const win = window.open('', '_blank')
-      if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
-      win.document.write(html)
-      win.document.close()
+
+      setLoadingMsg('Gerando PDF...')
+      await exportarPdfServidor(html, activeBook!.title)
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : 'Erro ao gerar PDF')
     } finally {
-      setLoading(false)
+      setLoadingMsg(null)
     }
   }
 
@@ -74,14 +77,14 @@ export function ExportarLivro() {
           <div className="absolute top-full right-0 mt-1.5 z-50 bg-background border border-border rounded-xl shadow-xl py-1 w-60 overflow-hidden">
             <button
               onClick={handlePdf}
-              disabled={loading}
+              disabled={!!loadingMsg}
               className="flex items-start gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors w-full text-left disabled:opacity-50"
             >
               <FileText size={14} className="text-muted-foreground shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium leading-tight">
-                  {loading
-                    ? (isPublished ? 'Paginando...' : 'Gerando...')
+                  {loadingMsg
+                    ? loadingMsg
                     : (isPublished ? 'Exportar PDF' : 'Exportar PDF de revisão')}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
