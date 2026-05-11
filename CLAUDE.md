@@ -39,9 +39,13 @@ Plataforma SaaS para escritores brasileiros: editor profissional com preview ao 
 - [x] Serviços backend (books.ts, chapters.ts, auth.ts)
 - [x] Middleware Next.js para auth
 - [x] Páginas de auth (login, callback) — tema Libretto
+- [x] Exportação PDF final via Puppeteer (servidor) — download direto, sem diálogo de impressão
+- [x] Exportação PDF de revisão (A4 fluente, marca d'água)
+- [x] Exportação EPUB (apenas no wizard FinalizarLivro, após publicação)
+- [x] Lock de edição ao publicar (banner âmbar + botão "Retomar edição")
+- [x] Quota: plano gratuito = 1 livro publicado (brunobrm@gmail.com = ilimitado)
+- [x] Formato KDP Amazon (5,5 × 8,5" / 13,97 × 21,59 cm)
 - [ ] Integração store → Supabase (sync automático)
-- [ ] Exportação PDF (Puppeteer)
-- [ ] Exportação EPUB (epub-gen)
 - [ ] Modo Mapa (React Flow — personagens)
 - [ ] Modo Estrutura (drag de capítulos)
 - [ ] Metas de escrita e streak diário
@@ -93,7 +97,8 @@ Plataforma SaaS para escritores brasileiros: editor profissional com preview ao 
 ```
 supabase/
 └── migrations/
-    └── 001_initial.sql             # Schema completo (books, chapters, profiles, sessions)
+    ├── 001_initial.sql             # Schema completo (books, chapters, profiles, sessions)
+    └── 002_add_kdp_format.sql      # Adiciona 'kdp' ao CHECK constraint de format
 
 src/
 ├── middleware.ts                   # Protege rotas /account, redireciona auth
@@ -101,13 +106,16 @@ src/
 │   ├── page.tsx                    # Landing page Libretto (dark, Playfair Display)
 │   ├── layout.tsx                  # Root layout — Geist + Playfair Display
 │   ├── new/page.tsx                # Onboarding: formato + título (localStorage)
+│   ├── books/page.tsx              # Dashboard: lista de livros do usuário
 │   ├── auth/
 │   │   ├── login/page.tsx          # Login / cadastro / magic link (tema Libretto)
 │   │   └── callback/route.ts       # Handler OAuth e magic link
-│   ├── (app)/editor/[bookId]/
+│   ├── editor/[bookId]/
 │   │   └── page.tsx                # Editor principal
 │   └── api/
-│       └── ia/route.ts             # Edge API: proxy streaming para Claude
+│       ├── ia/route.ts             # Edge API: proxy streaming para Claude
+│       ├── transcribe/route.ts     # Transcrição de áudio (voz)
+│       └── export/pdf/route.ts     # Puppeteer: gera PDF e retorna como download
 │
 ├── types/
 │   └── book.ts                     # Book, Chapter, BookFormat, BookCategory, etc.
@@ -115,6 +123,7 @@ src/
 ├── lib/
 │   ├── store/
 │   │   └── editorStore.ts          # Zustand (persiste localStorage, futura sync Supabase)
+│   ├── exportBook.ts               # paginarParaExport, buildPrintHtml, buildReviewHtml, buildEpub, exportarPdfServidor
 │   ├── supabase/
 │   │   ├── client.ts               # Browser client (@supabase/ssr)
 │   │   └── server.ts               # Server client (Server Components / API routes)
@@ -128,15 +137,18 @@ src/
     ├── layout/
     │   └── Header.tsx              # Modos, IA, foco, tema, "Finalizar livro"
     ├── editor/
-    │   ├── BookEditor.tsx          # Orquestrador principal do editor
+    │   ├── BookEditor.tsx          # Orquestrador + lock de edição (publicado = somente leitura)
     │   ├── Toolbar.tsx             # Barra de formatação TipTap
     │   ├── ChapterSidebar.tsx      # Lista de capítulos + inline edit + intercapa
     │   ├── PagePreview.tsx         # Preview com paginação dinâmica
+    │   ├── VisualizadorFlip.tsx    # Visualizador flip do livro completo
     │   ├── AssistenteIA.tsx        # Chat IA com streaming
     │   ├── ImportarArquivo.tsx     # Importação .docx / .txt / .md
-    │   ├── ConfiguracaoLivro.tsx   # Modal: formato, título, autor
+    │   ├── ConfiguracaoLivro.tsx   # Modal: formato, título, autor, fonte
     │   ├── IntercapaCapitulo.tsx   # Modal: estilos de abertura do capítulo
-    │   └── FinalizarLivro.tsx      # Wizard: classificação, sinopse, preço
+    │   ├── ExportarLivro.tsx       # Dropdown no header: PDF final ou PDF revisão
+    │   ├── CapaLivro.tsx           # Editor/upload de capa e contracapa
+    │   └── FinalizarLivro.tsx      # Wizard 4 passos: classificação→sinopse→preço→publicar+exportar
     └── ui/
         ├── area-label.tsx          # Pill de identificação de áreas
         └── ...                     # shadcn/ui components
@@ -215,6 +227,7 @@ LP (/) → "Começar grátis" → /auth/login
 | `a5` | A5 | 14,8 × 21 cm | 559 | 794 |
 | `pocket` | Bolso | 11 × 18 cm | 416 | 680 |
 | `abnt` | ABNT | A4 com margens | 756 | 1071 |
+| `kdp` | KDP Amazon | 5,5 × 8,5" (13,97 × 21,59 cm) | 528 | 816 |
 
 ---
 
@@ -311,6 +324,9 @@ SUPABASE_SERVICE_ROLE_KEY=
 STRIPE_SECRET_KEY=
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
+
+# Exportação PDF (dev local apenas — em produção usa @sparticuz/chromium)
+CHROME_EXECUTABLE_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
 ```
 
 ---
@@ -333,3 +349,8 @@ npx tsc --noEmit # Checar TypeScript sem compilar
 - **Persist no localStorage**: state do editor persiste entre reloads. Chave: `'book-projector-state'`.
 - **Imagens em base64**: por enquanto armazenadas no estado local. Na v2, subir para Supabase Storage.
 - **Modelo IA**: `claude-haiku-4-5-20251001` para chat (velocidade + custo). Considerar Sonnet para revisão profunda na v3.
+- **PDF via Puppeteer**: `POST /api/export/pdf` recebe HTML completo, renderiza com `puppeteer-core` + `@sparticuz/chromium` (produção) ou `CHROME_EXECUTABLE_PATH` (dev local). Requer Vercel Pro para timeout >10s. `vercel.json` configura 1024MB e 60s.
+- **Paginador vs render**: `paginarParaExport` mede blocos no DOM do browser a `11px` com `SAFETY=100px`. O `buildPrintHtml` replica o CSS exato do `globals.css .book-page-content` para que a medição e o render sejam idênticos.
+- **EPUB só após publicação**: exportar EPUB antes de publicar permitiria burlar o limite de livros do plano gratuito. EPUB só aparece no wizard `FinalizarLivro` após marcar como publicado.
+- **Quota plano gratuito**: 1 livro publicado por conta. Verificação via Supabase count antes de `salvarEPublicar`. `brunobrm@gmail.com` é ilimitado (hardcoded como owner).
+- **KDP API**: Amazon KDP não tem API pública. O fluxo é exportar PDF/EPUB nas dimensões corretas e o usuário faz upload manualmente em kdp.amazon.com. Para automação futura: parceria com agregador (Draft2Digital, IngramSpark).
