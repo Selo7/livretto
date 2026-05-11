@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Rocket } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Rocket, Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useEditorStore } from '@/lib/store/editorStore'
 import { getFontById } from '@/lib/fonts'
@@ -74,6 +74,11 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
   const fontCss = getFontById(activeBook?.body_font).css
 
   const [scale, setScale] = useState(0.5)
+  const [zoom, setZoom] = useState(1)
+  const ZOOM_MIN = 0.4
+  const ZOOM_MAX = 2.0
+  const ZOOM_STEP = 0.1
+
   useEffect(() => {
     const update = () => {
       const maxH = window.innerHeight * 0.80
@@ -313,9 +318,22 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
       if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goNext() }
       if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
       if (e.key === 'Escape') onClose()
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        setZoom(z => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 10) / 10))
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault()
+        setZoom(z => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 10) / 10))
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault()
+        setZoom(1)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goNext, goPrev, onClose])
 
   const cur  = spreads[spreadIdx]     ?? [{ kind: 'blank' }, { kind: 'blank' }]
@@ -353,6 +371,7 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
       </div>
 
       {/* Livro */}
+      <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.12s ease' }}>
       <div style={{ perspective: '2500px', perspectiveOrigin: 'center center' }}>
         <div className="relative flex items-center justify-center" style={{ width: pw * 2 + 8, height: ph }}>
 
@@ -408,6 +427,7 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
             </>
           )}
         </div>
+      </div>
       </div>
 
       {/* Controles */}
@@ -474,9 +494,35 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
         >
           <ChevronsRight size={18} />
         </button>
+
+        <div className="flex items-center gap-1 border-l border-white/20 pl-4 ml-2">
+          <button
+            onClick={() => setZoom(z => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 10) / 10))}
+            disabled={zoom <= ZOOM_MIN}
+            className="text-white/40 hover:text-white disabled:opacity-20 w-7 h-7 flex items-center justify-center rounded transition-colors hover:bg-white/10"
+            title="Reduzir zoom (Ctrl+−)"
+          >
+            <Minus size={14} />
+          </button>
+          <button
+            onClick={() => setZoom(1)}
+            className="text-white/40 hover:text-white/70 text-xs w-10 text-center transition-colors tabular-nums"
+            title="Resetar zoom (Ctrl+0)"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            onClick={() => setZoom(z => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 10) / 10))}
+            disabled={zoom >= ZOOM_MAX}
+            className="text-white/40 hover:text-white disabled:opacity-20 w-7 h-7 flex items-center justify-center rounded transition-colors hover:bg-white/10"
+            title="Aumentar zoom (Ctrl+=)"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
       </div>
 
-      <p className="text-[10px] text-white/20">Use ← → para navegar · clique em &ldquo;Pág.&rdquo; para buscar · Esc para fechar</p>
+      <p className="text-[10px] text-white/20">← → navegar · Pág. buscar · Ctrl+= / Ctrl+− zoom · Esc fechar</p>
     </div>
   )
 }
