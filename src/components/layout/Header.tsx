@@ -9,6 +9,7 @@ import { AreaLabel } from '@/components/ui/area-label'
 import { useEditorStore } from '@/lib/store/editorStore'
 import { FinalizarLivro } from '@/components/editor/FinalizarLivro'
 import { VisualizadorFlip } from '@/components/editor/VisualizadorFlip'
+import { ExportarLivro } from '@/components/editor/ExportarLivro'
 import { AppMode } from '@/types/book'
 import { cn } from '@/lib/utils'
 import { useState, useMemo } from 'react'
@@ -161,6 +162,8 @@ export function Header() {
         </Button>
 
         <Separator orientation="vertical" className="h-5" />
+
+        <ExportarLivro />
 
         <Button
           size="sm"
