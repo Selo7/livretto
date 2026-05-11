@@ -350,14 +350,14 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
   const contentCount = allPages.filter(p => p.kind === 'content').length
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-neutral-950 flex flex-col items-center justify-center gap-6 select-none">
+    <div className="fixed inset-0 z-[9999] bg-neutral-950 flex flex-col select-none">
 
       {/* Medidor oculto */}
       <div ref={medidorRef} aria-hidden className="book-page-content"
         style={{ position: 'fixed', top: '-9999px', left: '-9999px', visibility: 'hidden', pointerEvents: 'none' }} />
 
       {/* Barra superior */}
-      <div className="w-full flex items-center justify-between px-6 shrink-0">
+      <div className="w-full flex items-center justify-between px-6 py-3 shrink-0">
         <p className="text-xs text-white/40 truncate max-w-xs">{activeBook?.title} · {contentCount} páginas</p>
 
         {/* Zoom */}
@@ -398,8 +398,9 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
         </div>
       </div>
 
-      {/* Livro */}
-      <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.12s ease' }}>
+      {/* Livro — área scrollável quando o zoom ultrapassa o espaço disponível */}
+      <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center py-6">
+      <div style={{ zoom: zoom }}>
       <div style={{ perspective: '2500px', perspectiveOrigin: 'center center' }}>
         <div className="relative flex items-center justify-center" style={{ width: pw * 2 + 8, height: ph }}>
 
@@ -457,9 +458,10 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
         </div>
       </div>
       </div>
+      </div>
 
       {/* Controles */}
-      <div className="flex items-center gap-4 shrink-0">
+      <div className="flex items-center gap-4 shrink-0 py-3">
         <button
           onClick={() => setSpreadIdx(0)}
           disabled={!canPrev || animating}
@@ -525,7 +527,7 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
 
       </div>
 
-      <p className="text-[10px] text-white/20">← → navegar · clique em &ldquo;Pág.&rdquo; para buscar · Esc fechar</p>
+      <p className="text-[10px] text-white/20 shrink-0 pb-2">← → navegar · clique em &ldquo;Pág.&rdquo; para buscar · Esc fechar</p>
     </div>
   )
 }
