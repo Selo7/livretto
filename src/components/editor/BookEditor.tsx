@@ -103,7 +103,7 @@ export function BookEditor() {
       StarterKit,
       SearchExtension,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      TextStyle.configure({ types: ['heading', 'paragraph', 'textStyle'] }),
+      TextStyle,
       FontFamily,
       FontSize,
       ResizableImage,
