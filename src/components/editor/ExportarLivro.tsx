@@ -6,7 +6,7 @@ import { getFontById } from '@/lib/fonts'
 import { Button } from '@/components/ui/button'
 import { Download, FileText, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { buildReviewHtml, buildPrintHtml } from '@/lib/exportBook'
+import { paginarParaExport, buildReviewHtml, buildPrintHtml } from '@/lib/exportBook'
 
 export function ExportarLivro() {
   const { activeBook, chapters } = useEditorStore()
@@ -24,8 +24,10 @@ export function ExportarLivro() {
       const font = getFontById(activeBook!.body_font)
       let html: string
       if (isPublished) {
+        const font = getFontById(activeBook!.body_font)
+        const pages = await paginarParaExport(chapters, activeBook!.format, font.css)
         html = buildPrintHtml(
-          chapters,
+          pages,
           activeBook!.title,
           activeBook!.format,
           activeBook!.body_font,

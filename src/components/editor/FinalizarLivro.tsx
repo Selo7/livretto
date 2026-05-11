@@ -7,7 +7,7 @@ import { useEditorStore } from '@/lib/store/editorStore'
 import { BookCategory, BookStatus, SUBCATEGORIAS } from '@/types/book'
 import { cn } from '@/lib/utils'
 import { getFontById } from '@/lib/fonts'
-import { buildPrintHtml, buildEpub } from '@/lib/exportBook'
+import { paginarParaExport, buildPrintHtml, buildEpub } from '@/lib/exportBook'
 import { createClient } from '@/lib/supabase/client'
 
 const OWNER_EMAIL = 'brunobrm@gmail.com'
@@ -64,7 +64,9 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
     if (!activeBook) return
     setExportLoading('pdf')
     try {
-      const html = buildPrintHtml(chapters, activeBook.title, activeBook.format, activeBook.body_font, activeBook.custom_fonts ?? [], activeBook.cover_url, activeBook.back_cover_url)
+      const font = getFontById(activeBook.body_font)
+      const pages = await paginarParaExport(chapters, activeBook.format, font.css)
+      const html = buildPrintHtml(pages, activeBook.title, activeBook.format, activeBook.body_font, activeBook.custom_fonts ?? [], activeBook.cover_url, activeBook.back_cover_url)
       const win = window.open('', '_blank')
       if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
       win.document.write(html)
