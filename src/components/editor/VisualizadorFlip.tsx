@@ -16,6 +16,7 @@ const FORMAT_DIMS: Record<BookFormat, { w: number; h: number }> = {
   'a5':     { w: 559,  h: 794  },
   'pocket': { w: 416,  h: 680  },
   'abnt':   { w: 756,  h: 1071 },
+  'kdp':    { w: 528,  h: 816  },
 }
 const FORMAT_MARGINS: Record<BookFormat, { top: number; right: number; bottom: number; left: number }> = {
   '14x21':  { top: 96, right: 70, bottom: 60, left: 96 },
@@ -23,6 +24,7 @@ const FORMAT_MARGINS: Record<BookFormat, { top: number; right: number; bottom: n
   'a5':     { top: 96, right: 70, bottom: 60, left: 96 },
   'pocket': { top: 80, right: 56, bottom: 48, left: 80 },
   'abnt':   { top: 132, right: 76, bottom: 60, left: 113 },
+  'kdp':    { top: 72,  right: 58, bottom: 60, left: 72  },
 }
 
 // ---------------------------------------------------------------------------

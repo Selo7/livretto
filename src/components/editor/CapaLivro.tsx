@@ -14,7 +14,8 @@ const FORMAT_INFO: Record<BookFormat, { label: string; cm: string; px: string; w
   '15x23':  { label: '15 × 23 cm',  cm: '15 × 23 cm',   px: '1.772 × 2.717 px', w: 1772, h: 2717 },
   'a5':     { label: 'A5',           cm: '14,8 × 21 cm', px: '1.748 × 2.480 px', w: 1748, h: 2480 },
   'pocket': { label: 'Bolso',        cm: '10,5 × 17 cm', px: '1.240 × 2.008 px', w: 1240, h: 2008 },
-  'abnt':   { label: 'A4 ABNT',      cm: '21 × 29,7 cm', px: '2.480 × 3.508 px', w: 2480, h: 3508 },
+  'abnt':   { label: 'A4 ABNT',      cm: '21 × 29,7 cm',  px: '2.480 × 3.508 px', w: 2480, h: 3508 },
+  'kdp':    { label: 'KDP Amazon',   cm: '13,97 × 21,59 cm', px: '1.650 × 2.550 px', w: 1650, h: 2550 },
 }
 
 function comprimirImagem(file: File, maxW: number, maxH: number): Promise<string> {

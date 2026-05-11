@@ -59,6 +59,14 @@ const FORMATOS: FormatoConfig[] = [
     proporcao: { largura: 94, altura: 133 },
     disponivel: true,
   },
+  {
+    id: 'kdp',
+    nome: 'KDP Amazon',
+    dimensoes: '5,5 × 8,5" (13,97 × 21,59 cm)',
+    descricao: 'Formato padrão do Kindle Direct Publishing para publicação impressa na Amazon.',
+    proporcao: { largura: 68, altura: 105 },
+    disponivel: true,
+  },
 ]
 
 const FORMATOS_BREVE = [

@@ -42,6 +42,7 @@ const FORMAT_DIM: Record<BookFormat, { w: number; h: number; label: string }> = 
   'a5':    { w: 44, h: 63, label: 'A5' },
   'pocket':{ w: 33, h: 54, label: 'Bolso' },
   'abnt':  { w: 56, h: 80, label: 'ABNT' },
+  'kdp':   { w: 41, h: 63, label: 'KDP' },
 }
 
 function Mark() {

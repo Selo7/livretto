@@ -9,7 +9,8 @@ export const FORMAT_DIMS: Record<BookFormat, { w: number; h: number; wCm: string
   '15x23':  { w: 567,  h: 870,  wCm: '15cm',   hCm: '23cm' },
   'a5':     { w: 559,  h: 794,  wCm: '14.8cm', hCm: '21cm' },
   'pocket': { w: 416,  h: 680,  wCm: '11cm',   hCm: '18cm' },
-  'abnt':   { w: 756,  h: 1071, wCm: '21cm',   hCm: '29.7cm' },
+  'abnt':   { w: 756,  h: 1071, wCm: '21cm',    hCm: '29.7cm'  },
+  'kdp':    { w: 528,  h: 816,  wCm: '13.97cm', hCm: '21.59cm' },
 }
 export const FORMAT_MARGINS: Record<BookFormat, { top: number; right: number; bottom: number; left: number }> = {
   '14x21':  { top: 96, right: 70, bottom: 60, left: 96 },
@@ -17,6 +18,7 @@ export const FORMAT_MARGINS: Record<BookFormat, { top: number; right: number; bo
   'a5':     { top: 96, right: 70, bottom: 60, left: 96 },
   'pocket': { top: 80, right: 56, bottom: 48, left: 80 },
   'abnt':   { top: 132, right: 76, bottom: 60, left: 113 },
+  'kdp':    { top: 72,  right: 58, bottom: 60, left: 72  },
 }
 
 const px2cm = (px: number) => `${(px / 37.795).toFixed(3)}cm`

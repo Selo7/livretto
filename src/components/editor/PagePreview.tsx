@@ -19,6 +19,7 @@ const formatDimensions: Record<BookFormat, { width: number; height: number; labe
   'a5':     { width: 559,  height: 794,  label: 'A5' },
   'pocket': { width: 416,  height: 680,  label: 'Bolso' },
   'abnt':   { width: 756,  height: 1071, label: 'A4 ABNT' },
+  'kdp':    { width: 528,  height: 816,  label: 'KDP 5,5×8,5"' },
 }
 
 const formatMargins: Record<BookFormat, { top: number; right: number; bottom: number; left: number }> = {
@@ -27,6 +28,7 @@ const formatMargins: Record<BookFormat, { top: number; right: number; bottom: nu
   'a5':     { top: 96, right: 70, bottom: 60, left: 96 },
   'pocket': { top: 80, right: 56, bottom: 48, left: 80 },
   'abnt':   { top: 132, right: 76, bottom: 60, left: 113 },
+  'kdp':    { top: 72,  right: 58, bottom: 60, left: 72  },
 }
 
 // ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ const FORMATOS: { id: BookFormat; nome: string; dimensoes: string; proporcao: { 
   { id: 'a5',     nome: 'A5',             dimensoes: '14,8 × 21 cm',  proporcao: { w: 44, h: 63 } },
   { id: 'pocket', nome: 'Bolso',          dimensoes: '11 × 18 cm',    proporcao: { w: 33, h: 54 } },
   { id: 'abnt',   nome: 'ABNT',           dimensoes: 'A4 com margens', proporcao: { w: 56, h: 80 } },
+  { id: 'kdp',    nome: 'KDP Amazon',     dimensoes: '5,5 × 8,5"',    proporcao: { w: 41, h: 63 } },
 ]
 
 export function ConfiguracaoLivro() {

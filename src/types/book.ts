@@ -1,4 +1,4 @@
-export type BookFormat = '14x21' | '15x23' | 'a5' | 'pocket' | 'abnt'
+export type BookFormat = '14x21' | '15x23' | 'a5' | 'pocket' | 'abnt' | 'kdp'
 
 export type BookCategory = 'ficcao' | 'nao-ficcao' | 'academico' | 'infantojuvenil' | 'poesia'
 
