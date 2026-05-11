@@ -24,6 +24,7 @@ import { SearchExtension } from './extensions/SearchExtension'
 import { cn } from '@/lib/utils'
 import { Chapter } from '@/types/book'
 import { getFontById, loadGoogleFont, registerCustomFont } from '@/lib/fonts'
+import { ModoEstrutura } from './ModoEstrutura'
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList
@@ -52,7 +53,7 @@ const PREVIEW_MAX = 680
 const PREVIEW_DEFAULT = 420
 
 export function BookEditor() {
-  const { activeBook, activeChapter, setActiveChapter, chapters, setChapters, setWordCount, updateChapterContent, isFocusMode, toggleFocusMode } = useEditorStore()
+  const { activeBook, activeChapter, setActiveChapter, chapters, setChapters, setWordCount, updateChapterContent, isFocusMode, toggleFocusMode, mode } = useEditorStore()
   const [intercapaTarget, setIntercapaTarget] = useState<Chapter | null>(null)
   const [rodapeAberto, setRodapeAberto] = useState(false)
   const [buscarAberto, setBuscarAberto] = useState(false)
@@ -455,6 +456,14 @@ export function BookEditor() {
       img.src = src
     }
     reader.readAsDataURL(file)
+  }
+
+  if (mode === 'structure') {
+    return (
+      <div className="flex flex-1 overflow-hidden">
+        <ModoEstrutura />
+      </div>
+    )
   }
 
   return (
