@@ -12,6 +12,48 @@ interface ImportarArquivoProps {
   onImportar: (capitulos: CapituloImportado[]) => void
 }
 
+// Tags de bloco permitidas no HTML final do livro
+const BLOCOS = new Set(['P', 'H1', 'H2', 'H3', 'UL', 'OL', 'LI', 'BLOCKQUOTE'])
+// Tags inline permitidas
+const INLINES = new Set(['STRONG', 'B', 'EM', 'I', 'U', 'BR'])
+
+function processarNo(node: ChildNode): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return (node.textContent ?? '').replace(/ /g, ' ')
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return ''
+
+  const el = node as Element
+  const tag = el.tagName.toUpperCase()
+  const filhos = Array.from(el.childNodes).map(processarNo).join('')
+
+  if (BLOCOS.has(tag)) {
+    const texto = filhos.replace(/\s/g, '')
+    if (!texto) return '' // parágrafo vazio — descarta
+    const t = tag === 'H1' ? 'h1' : tag === 'H2' ? 'h2' : tag === 'H3' ? 'h3'
+            : tag === 'UL' ? 'ul' : tag === 'OL' ? 'ol' : tag === 'LI' ? 'li'
+            : tag === 'BLOCKQUOTE' ? 'blockquote' : 'p'
+    return `<${t}>${filhos}</${t}>`
+  }
+
+  if (INLINES.has(tag)) {
+    if (tag === 'BR') return '<br/>'
+    const t = (tag === 'B') ? 'strong' : (tag === 'I') ? 'em' : tag.toLowerCase()
+    return `<${t}>${filhos}</${t}>`
+  }
+
+  // Qualquer outra tag (div, span, table, etc.) — extrai apenas o conteúdo
+  return filhos
+}
+
+// Converte o HTML bruto do Mammoth/Word em HTML limpo compatível com o editor.
+// Remove: class, style, atributos Word, spans desnecessários, parágrafos vazios.
+// Mantém: estrutura semântica (h1-h3, p, ul/ol, blockquote) e formatação inline (bold, italic, u).
+function limparHtmlWord(html: string): string {
+  const dom = new DOMParser().parseFromString(html, 'text/html')
+  return Array.from(dom.body.childNodes).map(processarNo).join('')
+}
+
 function splitByH1(html: string, fallbackTitle: string): CapituloImportado[] {
   const dom = new DOMParser().parseFromString(html, 'text/html')
   const chunks: CapituloImportado[] = []
@@ -20,17 +62,16 @@ function splitByH1(html: string, fallbackTitle: string): CapituloImportado[] {
 
   for (const el of Array.from(dom.body.children)) {
     if (el.tagName === 'H1') {
-      chunks.push({ titulo, html: buffer })
+      if (buffer.trim()) chunks.push({ titulo, html: buffer })
       titulo = el.textContent?.trim() || 'Capítulo'
       buffer = ''
     } else {
       buffer += el.outerHTML
     }
   }
-  chunks.push({ titulo, html: buffer })
+  if (buffer.trim()) chunks.push({ titulo, html: buffer })
 
-  const result = chunks.filter(c => c.html.trim())
-  return result.length > 0 ? result : [{ titulo: fallbackTitle, html }]
+  return chunks.length > 0 ? chunks : [{ titulo: fallbackTitle, html }]
 }
 
 type Estado = 'idle' | 'arrastando' | 'processando' | 'sucesso' | 'erro'
@@ -62,7 +103,9 @@ export function ImportarArquivo({ onImportar }: ImportarArquivoProps) {
         const mammoth = await import('mammoth')
         const buffer = await arquivo.arrayBuffer()
         const resultado = await mammoth.convertToHtml({ arrayBuffer: buffer })
-        html = resultado.value
+        // Limpa o HTML do Word: remove class/style/spans desnecessários,
+        // parágrafos vazios e elementos não suportados pelo editor.
+        html = limparHtmlWord(resultado.value)
 
         if (resultado.messages.length > 0) {
           console.warn('Avisos na importação:', resultado.messages)
