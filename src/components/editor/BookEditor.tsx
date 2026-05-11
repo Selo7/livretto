@@ -4,9 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
-import TextStyle from '@tiptap/extension-text-style'
-import FontFamily from '@tiptap/extension-font-family'
-import { FontSize } from './extensions/FontSize'
+import { TextStyle, FontFamily, FontSize } from '@tiptap/extension-text-style'
 import { ResizableImage } from './extensions/ResizableImage'
 import Highlight from '@tiptap/extension-highlight'
 import CharacterCount from '@tiptap/extension-character-count'
@@ -105,7 +103,7 @@ export function BookEditor() {
       StarterKit,
       SearchExtension,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      TextStyle,
+      TextStyle.configure({ types: ['heading', 'paragraph', 'textStyle'] }),
       FontFamily,
       FontSize,
       ResizableImage,
