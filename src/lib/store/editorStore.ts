@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { AppMode, Book, Chapter, ChapterFootnote } from '@/types/book'
+import { AppMode, Book, Chapter, ChapterFootnote, StoredMapNode, StoredMapEdge } from '@/types/book'
 
 interface EditorState {
   mode: AppMode
@@ -13,6 +13,7 @@ interface EditorState {
   wordCount: number
   sessionWords: number
   chapterPageCounts: Record<string, number>
+  mapData: Record<string, { nodes: StoredMapNode[]; edges: StoredMapEdge[] }>
 
   setMode: (mode: AppMode) => void
   setActiveBook: (book: Book | null) => void
@@ -24,6 +25,8 @@ interface EditorState {
   removeChapter: (id: string) => void
   updateChapterOpening: (id: string, patch: Partial<Pick<Chapter, 'opening_style' | 'opening_image' | 'opening_epigraph' | 'opening_epigraph_author' | 'numbered' | 'chapter_num'>>) => void
   setChapterPageCount: (id: string, count: number) => void
+  setMapNodes: (bookId: string, nodes: StoredMapNode[]) => void
+  setMapEdges: (bookId: string, edges: StoredMapEdge[]) => void
   // Notas de rodapé
   addChapterFootnote: (chapterId: string, content: string) => number
   updateChapterFootnote: (chapterId: string, num: number, content: string) => void
@@ -60,6 +63,7 @@ export const useEditorStore = create<EditorState>()(
       wordCount: 0,
       sessionWords: 0,
       chapterPageCounts: {},
+      mapData: {},
 
       setMode: (mode) => set({ mode }),
       setActiveBook: (book) => set((s) => ({
@@ -126,6 +130,12 @@ export const useEditorStore = create<EditorState>()(
       setChapterPageCount: (id, count) => set((s) => ({
         chapterPageCounts: { ...s.chapterPageCounts, [id]: count },
       })),
+      setMapNodes: (bookId, nodes) => set((s) => ({
+        mapData: { ...s.mapData, [bookId]: { nodes, edges: s.mapData[bookId]?.edges ?? [] } },
+      })),
+      setMapEdges: (bookId, edges) => set((s) => ({
+        mapData: { ...s.mapData, [bookId]: { nodes: s.mapData[bookId]?.nodes ?? [], edges } },
+      })),
 
       addChapterFootnote: (chapterId, content) => {
         const allNums = get().chapters.flatMap(c => (c.footnotes ?? []).map(f => f.num))
@@ -160,6 +170,7 @@ export const useEditorStore = create<EditorState>()(
         chapters: state.chapters,
         mode: state.mode,
         isPreviewOpen: state.isPreviewOpen,
+        mapData: state.mapData,
       }),
     }
   )

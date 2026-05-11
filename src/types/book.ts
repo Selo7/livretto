@@ -16,6 +16,24 @@ export type BlockType = 'paragraph' | 'heading1' | 'heading2' | 'heading3' | 'qu
 
 export type NodeType = 'character' | 'place' | 'event' | 'theme' | 'chapter'
 
+export type MapNodeType = 'personagem' | 'lugar' | 'evento' | 'objeto' | 'capitulo'
+
+export interface StoredMapNode {
+  id: string
+  nodeType: MapNodeType
+  label: string
+  description?: string
+  x: number
+  y: number
+}
+
+export interface StoredMapEdge {
+  id: string
+  source: string
+  target: string
+  label?: string
+}
+
 export interface Book {
   id: string
   title: string

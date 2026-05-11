@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 import { Chapter } from '@/types/book'
 import { getFontById, loadGoogleFont, registerCustomFont } from '@/lib/fonts'
 import { ModoEstrutura } from './ModoEstrutura'
+import { ModoMapa } from './ModoMapa'
 
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList
@@ -460,6 +461,14 @@ export function BookEditor() {
       img.src = src
     }
     reader.readAsDataURL(file)
+  }
+
+  if (mode === 'map') {
+    return (
+      <div className="flex flex-1 overflow-hidden">
+        <ModoMapa />
+      </div>
+    )
   }
 
   if (mode === 'structure') {
