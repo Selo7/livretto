@@ -23,6 +23,7 @@ export interface StoredMapNode {
   nodeType: MapNodeType
   label: string
   description?: string
+  color?: string
   x: number
   y: number
 }
