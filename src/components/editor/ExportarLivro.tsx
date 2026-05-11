@@ -63,8 +63,8 @@ function intercapaHtml(chapter: Chapter, num: number, fontCss: string, contentH:
 </div>`
 }
 
-function coverPageHtml(src: string): string {
-  return `<div class="cover-page">
+function coverPageHtml(src: string, w: string, h: string): string {
+  return `<div class="cover-page" style="width:${w};height:${h}">
   <img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block" alt=""/>
 </div>`
 }
@@ -103,8 +103,9 @@ function buildPdfHtml(
     return `${intercapa}<div class="chapter-content${firstPage ? '' : ' pb'}">${content}</div>`
   }).join('\n')
 
-  const capa = coverUrl ? coverPageHtml(coverUrl, fmt.size) : ''
-  const contracapa = backCoverUrl ? coverPageHtml(backCoverUrl, fmt.size) : ''
+  const [pgW, pgH] = fmt.size.split(' ')
+  const capa = coverUrl ? coverPageHtml(coverUrl, pgW, pgH) : ''
+  const contracapa = backCoverUrl ? coverPageHtml(backCoverUrl, pgW, pgH) : ''
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -118,7 +119,7 @@ ${customFontFaces}
 @page cover-page{size:${fmt.size};margin:0}
 *{box-sizing:border-box}
 body{margin:0;padding:0;font-family:${font.css};font-size:11pt;line-height:1.8;color:#1a1a1a;background:#fff}
-.cover-page{page:cover-page;break-after:page;width:100%;height:100%;overflow:hidden;background:#000}
+.cover-page{page:cover-page;break-after:page;overflow:hidden;background:#000}
 .pb{break-before:page}
 .chapter-content p{margin:0 0 .4em;text-indent:1.5em}
 .chapter-content p:first-child,.chapter-content h1+p,.chapter-content h2+p,.chapter-content h3+p{text-indent:0}
