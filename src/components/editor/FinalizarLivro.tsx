@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, KeyboardEvent } from 'react'
-import { Rocket, Download, ChevronRight, ChevronLeft, X, Check } from 'lucide-react'
+import { Rocket, Download, ChevronRight, ChevronLeft, X, Check, FileText, FileDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useEditorStore } from '@/lib/store/editorStore'
 import { BookCategory, BookStatus, SUBCATEGORIAS } from '@/types/book'
 import { cn } from '@/lib/utils'
+import { getFontById } from '@/lib/fonts'
+import { paginarParaExport, buildReviewHtml, buildPrintHtml, buildEpub } from '@/lib/exportBook'
 
 const CATEGORIAS: { id: BookCategory; nome: string; descricao: string; cor: string }[] = [
   { id: 'ficcao',         nome: 'Ficção',           descricao: 'Romance, thriller, fantasia…',      cor: '#6366f1' },
@@ -25,6 +27,7 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
   const { activeBook, updateBook, chapters, wordCount } = useEditorStore()
 
   const [step, setStep] = useState(0)
+  const [exportLoading, setExportLoading] = useState<'pdf' | 'epub' | null>(null)
   const [categoria, setCategoria] = useState<BookCategory | ''>(activeBook?.category ?? '')
   const [subcategoria, setSubcategoria] = useState(activeBook?.subcategory ?? '')
   const [keywords, setKeywords] = useState<string[]>(activeBook?.keywords ?? [])
@@ -48,6 +51,45 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
     }
     if (e.key === 'Backspace' && !kwInput && keywords.length > 0) {
       setKeywords(keywords.slice(0, -1))
+    }
+  }
+
+  async function handleExportPdf() {
+    if (!activeBook) return
+    setExportLoading('pdf')
+    try {
+      const isPublished = activeBook.status === 'publicado'
+      const font = getFontById(activeBook.body_font)
+      let html: string
+      if (isPublished) {
+        const pages = await paginarParaExport(chapters, activeBook.format, font.css)
+        html = buildPrintHtml(pages, activeBook.title, activeBook.format, activeBook.body_font, activeBook.custom_fonts ?? [], activeBook.cover_url, activeBook.back_cover_url)
+      } else {
+        html = buildReviewHtml(chapters, activeBook.title, activeBook.author, activeBook.body_font, activeBook.custom_fonts ?? [], activeBook.cover_url, activeBook.back_cover_url)
+      }
+      const win = window.open('', '_blank')
+      if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
+      win.document.write(html)
+      win.document.close()
+    } finally {
+      setExportLoading(null)
+    }
+  }
+
+  async function handleExportEpub() {
+    if (!activeBook) return
+    setExportLoading('epub')
+    try {
+      const font = getFontById(activeBook.body_font)
+      const blob = await buildEpub(chapters, activeBook.title, activeBook.author, activeBook.id, font.css, activeBook.status === 'publicado')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${activeBook.title.replace(/[^a-z0-9çãõáéíóúâêîôûàüñ]/gi, '-')}.epub`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExportLoading(null)
     }
   }
 
@@ -277,18 +319,34 @@ export function FinalizarLivro({ onClose }: FinalizarLivroProps) {
               <div>
                 <p className="text-xs font-medium mb-2">Exportar</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <button disabled className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/30 opacity-50 cursor-not-allowed text-left">
-                    <Download size={14} className="text-muted-foreground shrink-0" />
+                  <button
+                    onClick={handleExportPdf}
+                    disabled={!!exportLoading}
+                    className="flex items-start gap-2 p-3 rounded-lg border border-border hover:bg-accent transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileText size={14} className="text-muted-foreground shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-xs font-medium">PDF para impressão</p>
-                      <p className="text-[10px] text-muted-foreground">Em breve</p>
+                      <p className="text-xs font-medium">
+                        {exportLoading === 'pdf' ? 'Gerando...' : 'PDF para impressão'}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        {activeBook?.status === 'publicado' ? 'Layout final diagramado' : 'Versão de revisão A4'}
+                      </p>
                     </div>
                   </button>
-                  <button disabled className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/30 opacity-50 cursor-not-allowed text-left">
-                    <Download size={14} className="text-muted-foreground shrink-0" />
+                  <button
+                    onClick={activeBook?.status === 'publicado' ? handleExportEpub : undefined}
+                    disabled={!!exportLoading || activeBook?.status !== 'publicado'}
+                    className="flex items-start gap-2 p-3 rounded-lg border border-border hover:bg-accent transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileDown size={14} className="text-muted-foreground shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-xs font-medium">EPUB para e-readers</p>
-                      <p className="text-[10px] text-muted-foreground">Em breve</p>
+                      <p className="text-xs font-medium">
+                        {exportLoading === 'epub' ? 'Gerando...' : 'EPUB para e-readers'}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        {activeBook?.status === 'publicado' ? 'Kindle, Kobo, Apple Books' : 'Disponível após publicar'}
+                      </p>
                     </div>
                   </button>
                 </div>

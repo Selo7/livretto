@@ -9,6 +9,8 @@ import { ResizableImage } from './extensions/ResizableImage'
 import Highlight from '@tiptap/extension-highlight'
 import CharacterCount from '@tiptap/extension-character-count'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Lock } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Toolbar } from './Toolbar'
 import { PagePreview } from './PagePreview'
 import { ChapterSidebar } from './ChapterSidebar'
@@ -55,7 +57,8 @@ const PREVIEW_MAX = 680
 const PREVIEW_DEFAULT = 420
 
 export function BookEditor() {
-  const { activeBook, activeChapter, setActiveChapter, chapters, setChapters, setWordCount, updateChapterContent, isFocusMode, toggleFocusMode, mode } = useEditorStore()
+  const { activeBook, activeChapter, setActiveChapter, chapters, setChapters, setWordCount, updateChapterContent, updateBook, isFocusMode, toggleFocusMode, mode } = useEditorStore()
+  const isPublished = activeBook?.status === 'publicado'
   const [intercapaTarget, setIntercapaTarget] = useState<Chapter | null>(null)
   const [rodapeAberto, setRodapeAberto] = useState(false)
   const [buscarAberto, setBuscarAberto] = useState(false)
@@ -189,6 +192,12 @@ export function BookEditor() {
       }
     },
   })
+
+  // Bloqueia/desbloqueia editor conforme status de publicação
+  useEffect(() => {
+    if (!editor) return
+    editor.setEditable(!isPublished)
+  }, [editor, isPublished])
 
   // Carrega a fonte do livro sempre que ela muda
   useEffect(() => {
@@ -497,7 +506,17 @@ export function BookEditor() {
           </div>
         )}
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageFileChange} />
-        <Toolbar editor={editor} isDictating={isDictating} onToggleDictation={toggleDictation} onImportar={handleImportar} onTransformToChapter={handleTransformToChapter} onOpenRodape={() => setRodapeAberto(true)} onOpenBuscar={() => setBuscarAberto(true)} onInsertImage={handleInsertImage} defaultFontId={activeBook?.body_font} />
+        {isPublished ? (
+          <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950 border-b border-amber-200 dark:border-amber-800 shrink-0">
+            <Lock size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="text-xs text-amber-700 dark:text-amber-300 flex-1">Livro publicado — somente leitura</span>
+            <Button variant="ghost" size="sm" className="h-6 text-xs px-2 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900" onClick={() => updateBook({ status: 'revisao' })}>
+              Retomar edição
+            </Button>
+          </div>
+        ) : (
+          <Toolbar editor={editor} isDictating={isDictating} onToggleDictation={toggleDictation} onImportar={handleImportar} onTransformToChapter={handleTransformToChapter} onOpenRodape={() => setRodapeAberto(true)} onOpenBuscar={() => setBuscarAberto(true)} onInsertImage={handleInsertImage} />
+        )}
         <BuscarTexto editor={editor} open={buscarAberto} onClose={() => setBuscarAberto(false)} />
 
         <div ref={editorScrollRef} className={cn(
