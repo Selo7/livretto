@@ -81,7 +81,7 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
   const medidorRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
-  const lastScrolledBlockRef = useRef(-1)
+  const lastScrollKeyRef = useRef('')
   const activeChapterStartBlockRef = useRef(0)
 
   const format = activeBook?.format ?? '14x21'
@@ -165,8 +165,9 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
       const allNodes = Array.from(medidor.childNodes)
       medidor.innerHTML = ''
 
-      // Margem de segurança: 1 cm abaixo do texto (38 px a 96 dpi × escala)
-      const SAFETY = 38 * scale
+      // Margem de segurança mínima para absorver erros de arredondamento.
+      // A margem inferior da página (margins.bottom) já reserva espaço visual suficiente.
+      const SAFETY = 4 * scale
       const pageLimit = alturaUtil - SAFETY
 
       const paginasGeradas: PaginaData[] = []
@@ -208,6 +209,8 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
         if (medidor.scrollHeight > pageLimit && htmlAtual) {
           // Elemento ultrapassa o limite — remove e fecha a página atual
           medidor.removeChild(clone)
+          // Página "curta": menos de ~4 linhas — trata igual ao caso do heading sozinho
+          const isShortPage = medidor.scrollHeight < 11 * scale * 1.8 * 4
 
           // Anti-orphan: título no fim ou sozinho na página → mantém com o próximo elemento
           if (/^H[1-3]$/.test(lastElTag) && htmlAtual.length > lastElHtml.length) {
@@ -216,8 +219,8 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
             finalizarPagina(semTitulo, startBlock, blockNum - 2)
             htmlAtual = lastElHtml + el.outerHTML
             startBlock = blockNum - 1
-          } else if (/^H[1-3]$/.test(lastElTag)) {
-            // Título sozinho no início de página — força o próximo elemento na mesma página
+          } else if (/^H[1-3]$/.test(lastElTag) || isShortPage) {
+            // Título sozinho OU página muito curta — força o próximo elemento na mesma página
             htmlAtual += el.outerHTML
             finalizarPagina(htmlAtual, startBlock, blockNum)
             htmlAtual = ''
@@ -262,16 +265,21 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
 
   // ---------------------------------------------------------------------------
   // Scroll automático para página do cursor
+  // Usa chave composta cursor:páginaAlvo para rolar sempre que o cursor muda
+  // OU quando a paginação muda e o cursor passa para uma página diferente.
+  // Isso evita o race condition onde cursorBlockIndex muda com paginas antigas
+  // e o scroll ficava preso na página errada após o Enter.
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!isPreviewOpen || paginas.length === 0) return
-    if (cursorBlockIndex === lastScrolledBlockRef.current) return
-    lastScrolledBlockRef.current = cursorBlockIndex
     const globalBlock = activeChapterStartBlockRef.current + cursorBlockIndex
     const targetIdx = paginas.findIndex(
       p => globalBlock >= p.startBlock && globalBlock <= p.endBlock
     )
     if (targetIdx < 0) return
+    const key = `${cursorBlockIndex}:${targetIdx}`
+    if (key === lastScrollKeyRef.current) return
+    lastScrollKeyRef.current = key
     pageRefs.current[targetIdx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [cursorBlockIndex, paginas, isPreviewOpen])
 

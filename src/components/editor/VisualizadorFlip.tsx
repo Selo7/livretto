@@ -164,13 +164,14 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
 
         if (medidor.scrollHeight > pageLimit && htmlAtual) {
           medidor.removeChild(clone)
+          const isShortPage = medidor.scrollHeight < 11 * scale * 1.8 * 4
 
           if (/^H[1-3]$/.test(lastElTag) && htmlAtual.length > lastElHtml.length) {
             // Título no fim de página com conteúdo anterior — puxa título+próximo para a próxima
             finalizarPagina(htmlAtual.slice(0, -lastElHtml.length))
             htmlAtual = lastElHtml + el.outerHTML
-          } else if (/^H[1-3]$/.test(lastElTag)) {
-            // Título sozinho no início de página — força o próximo elemento na mesma página
+          } else if (/^H[1-3]$/.test(lastElTag) || isShortPage) {
+            // Título sozinho OU página muito curta — força o próximo elemento na mesma página
             htmlAtual += el.outerHTML
             finalizarPagina(htmlAtual)
             htmlAtual = ''
