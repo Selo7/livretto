@@ -257,10 +257,11 @@ ${chaptersHtml}${backCoverHtml}
 }
 
 // ---------------------------------------------------------------------------
-// PDF final — fiel ao visualizador, com capa, numeração e notas de rodapé
+// PDF final — CSS @page com fluxo natural, sem cortes forçados
+// Recebe Chapter[] diretamente; o browser controla as quebras de página
 // ---------------------------------------------------------------------------
 export function buildPrintHtml(
-  pages: ExportPage[],
+  chapters: Chapter[],
   bookTitle: string,
   format: BookFormat,
   fontId: string | undefined,
@@ -283,60 +284,54 @@ export function buildPrintHtml(
   const customFontFaces = customFonts.map(f => `@font-face{font-family:'${f.name}';src:url('${f.dataUrl}')}`).join('\n')
 
   const coverHtml = coverUrl
-    ? `<div style="page:cover-pg;break-after:page;width:${dims.wCm};height:${dims.hCm};overflow:hidden;background:#000"><img src="${coverUrl}" style="width:100%;height:100%;object-fit:cover;display:block" alt=""/></div>`
+    ? `<div class="cover-pg"><img src="${coverUrl}" style="width:100%;height:100%;object-fit:cover;display:block" alt=""/></div>`
     : ''
   const backCoverHtml = backCoverUrl
-    ? `<div style="page:cover-pg;break-before:page;width:${dims.wCm};height:${dims.hCm};overflow:hidden;background:#000"><img src="${backCoverUrl}" style="width:100%;height:100%;object-fit:cover;display:block" alt=""/></div>`
+    ? `<div class="cover-pg"><img src="${backCoverUrl}" style="width:100%;height:100%;object-fit:cover;display:block" alt=""/></div>`
     : ''
 
-  const pagesHtml = pages.map(p => {
-    if (p.kind === 'intercapa') return p.html
+  let bodyHtml = ''
+  for (let ci = 0; ci < chapters.length; ci++) {
+    const chapter = chapters[ci]
+    const chNum = getChapterNum(chapters, ci)
+    const hasIntercapa = !!(chapter.opening_style && chapter.opening_style !== 'nenhum')
 
-    const contentHtml = p.html.replace(
-      /\[(\d+)\]/g,
-      '<sup style="color:#c8720a;font-size:.72em;vertical-align:super;font-weight:600">[$1]</sup>'
-    )
+    if (hasIntercapa) {
+      bodyHtml += intercapaPageHtml(chapter, chNum, font.css, dims.wCm, dims.hCm)
+    }
 
-    const fnHtml = p.footnotes?.length
-      ? `<div class="fn-block">
-          <div class="fn-rule"></div>
-          ${p.footnotes.map(fn => `<div class="fn-line"><span class="fn-num">[${fn.num}]</span><span class="fn-text">${fn.html}</span></div>`).join('')}
-        </div>`
-      : ''
+    const content = (chapter.content_html || '')
+      .replace(/<hr[^>]*>/gi, '<div class="pg-break"></div>')
+      .replace(/\[(\d+)\]/g, '<sup class="fn-ref">[$1]</sup>')
 
-    const pageNumHtml = `<div class="pg-num">${p.pageNum}</div>`
+    // Primeiro capítulo sem intercapa não força quebra; os demais sempre começam em nova página
+    const breakClass = (ci === 0 && !hasIntercapa) ? '' : ' ch-break'
+    bodyHtml += `<div class="chapter${breakClass}">${content}</div>`
+  }
 
-    return `<div class="page">${contentHtml}${fnHtml}${pageNumHtml}</div>`
-  }).join('\n')
-
-  return `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><title>${bookTitle}</title>${googleImport}
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${bookTitle}</title>${googleImport}
 <style>
 ${customFontFaces}
-@page{size:${dims.wCm} ${dims.hCm};margin:0}
+@page{size:${dims.wCm} ${dims.hCm};margin:${mTop} ${mRight} ${mBott} ${mLeft}}
 @page cover-pg{size:${dims.wCm} ${dims.hCm};margin:0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#fff;font-family:${font.css};font-size:11pt;line-height:1.8;color:#1a1a1a}
-.page{
-  width:${dims.wCm};height:${dims.hCm};
-  padding:${mTop} ${mRight} ${mBott} ${mLeft};
-  break-after:page;overflow:hidden;position:relative;
-}
-.page p{margin-bottom:.45em;text-indent:1.5em}
-.page p:first-child,.page h1+p,.page h2+p,.page h3+p{text-indent:0}
-.page h1{font-size:18pt;font-weight:700;padding:.3em 0 .5em;text-indent:0}
-.page h2{font-size:14pt;font-weight:600;padding:1em 0 .4em;text-indent:0}
-.page h3{font-size:12pt;font-weight:600;padding:.8em 0 .3em;text-indent:0}
-.page blockquote{margin:.7em 1.2em;padding-left:.75em;border-left:2px solid #c8b89a;font-style:italic;color:#555}
-.page ul,.page ol{margin:.5em 0 .5em 1.5em}
-.page strong{font-weight:700}.page em{font-style:italic}
-.pg-num{position:absolute;bottom:0;left:0;right:0;text-align:center;padding-bottom:${px2cm(Math.floor(margins.bottom/3))};font-size:9pt;color:#888}
-.fn-block{position:absolute;bottom:${mBott};left:${mLeft};right:${mRight}}
-.fn-rule{border-top:.5pt solid #bbb;margin-bottom:4pt}
-.fn-line{display:flex;gap:4pt;font-size:8.5pt;line-height:1.5;color:#444;margin-bottom:2pt}
-.fn-num{flex-shrink:0;font-weight:600}
+body{font-family:${font.css};font-size:11pt;line-height:1.8;color:#1a1a1a;background:#fff}
+.cover-pg{page:cover-pg;width:${dims.wCm};height:${dims.hCm};break-after:page;overflow:hidden}
+.ch-break{break-before:page}
+.pg-break{break-before:page;height:0;overflow:hidden}
+p{margin-bottom:.45em;text-indent:1.5em;orphans:3;widows:3}
+p:first-child,h1+p,h2+p,h3+p{text-indent:0}
+h1{font-size:18pt;font-weight:700;padding:.3em 0 .5em;text-indent:0;break-after:avoid}
+h2{font-size:14pt;font-weight:600;padding:1em 0 .4em;text-indent:0;break-after:avoid}
+h3{font-size:12pt;font-weight:600;padding:.8em 0 .3em;text-indent:0;break-after:avoid}
+blockquote{margin:.7em 1.2em;padding-left:.75em;border-left:2px solid #c8b89a;font-style:italic;color:#555;break-inside:avoid}
+ul,ol{margin:.5em 0 .5em 1.5em}
+li{break-inside:avoid}
+strong{font-weight:700}em{font-style:italic}
+.fn-ref{color:#c8720a;font-size:.72em;vertical-align:super;font-weight:600}
+img{max-width:100%;height:auto;break-inside:avoid}
 </style></head><body>
-${coverHtml}${pagesHtml}${backCoverHtml}
+${coverHtml}${bodyHtml}${backCoverHtml}
 <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),400))</script>
 </body></html>`
 }
