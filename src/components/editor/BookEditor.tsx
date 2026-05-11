@@ -170,10 +170,12 @@ export function BookEditor() {
           try {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
+            const footnotes = useEditorStore.getState().chapters.find(c => c.id === id)?.footnotes ?? []
             await updateChapterService(id, {
               content: json,
               content_html: html,
               word_count: words,
+              footnotes,
               updated_at: new Date().toISOString(),
             })
           } catch { /* offline or not logged in */ }
