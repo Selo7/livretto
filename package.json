@@ -17,7 +17,6 @@
     "@supabase/supabase-js": "^2.105.3",
     "@tiptap/extension-character-count": "^3.22.5",
     "@tiptap/extension-font-family": "^3.23.1",
-    "@tiptap/extension-font-size": "^3.0.0-next.3",
     "@tiptap/extension-text-style": "^3.23.1",
     "@tiptap/extension-dropcursor": "^3.22.5",
     "@tiptap/extension-gapcursor": "^3.22.5",
