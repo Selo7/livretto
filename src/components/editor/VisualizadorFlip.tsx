@@ -358,7 +358,35 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
 
       {/* Barra superior */}
       <div className="w-full flex items-center justify-between px-6 shrink-0">
-        <p className="text-xs text-white/40">{activeBook?.title} · {contentCount} páginas</p>
+        <p className="text-xs text-white/40 truncate max-w-xs">{activeBook?.title} · {contentCount} páginas</p>
+
+        {/* Zoom */}
+        <div className="flex items-center gap-1 bg-white/5 rounded-lg px-1 py-0.5">
+          <button
+            onClick={() => setZoom(z => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 10) / 10))}
+            disabled={zoom <= ZOOM_MIN}
+            className="text-white/50 hover:text-white disabled:opacity-20 w-7 h-7 flex items-center justify-center rounded transition-colors hover:bg-white/10"
+            title="Reduzir zoom (Ctrl+−)"
+          >
+            <Minus size={14} />
+          </button>
+          <button
+            onClick={() => setZoom(1)}
+            className="text-white/60 hover:text-white text-xs w-10 text-center transition-colors tabular-nums"
+            title="Resetar para 100% (Ctrl+0)"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            onClick={() => setZoom(z => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 10) / 10))}
+            disabled={zoom >= ZOOM_MAX}
+            className="text-white/50 hover:text-white disabled:opacity-20 w-7 h-7 flex items-center justify-center rounded transition-colors hover:bg-white/10"
+            title="Aumentar zoom (Ctrl+=)"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+
         <div className="flex items-center gap-3">
           <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8" onClick={onContinuar}>
             <Rocket size={13} />
@@ -495,34 +523,9 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
           <ChevronsRight size={18} />
         </button>
 
-        <div className="flex items-center gap-1 border-l border-white/20 pl-4 ml-2">
-          <button
-            onClick={() => setZoom(z => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 10) / 10))}
-            disabled={zoom <= ZOOM_MIN}
-            className="text-white/40 hover:text-white disabled:opacity-20 w-7 h-7 flex items-center justify-center rounded transition-colors hover:bg-white/10"
-            title="Reduzir zoom (Ctrl+−)"
-          >
-            <Minus size={14} />
-          </button>
-          <button
-            onClick={() => setZoom(1)}
-            className="text-white/40 hover:text-white/70 text-xs w-10 text-center transition-colors tabular-nums"
-            title="Resetar zoom (Ctrl+0)"
-          >
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            onClick={() => setZoom(z => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 10) / 10))}
-            disabled={zoom >= ZOOM_MAX}
-            className="text-white/40 hover:text-white disabled:opacity-20 w-7 h-7 flex items-center justify-center rounded transition-colors hover:bg-white/10"
-            title="Aumentar zoom (Ctrl+=)"
-          >
-            <Plus size={14} />
-          </button>
-        </div>
       </div>
 
-      <p className="text-[10px] text-white/20">← → navegar · Pág. buscar · Ctrl+= / Ctrl+− zoom · Esc fechar</p>
+      <p className="text-[10px] text-white/20">← → navegar · clique em &ldquo;Pág.&rdquo; para buscar · Esc fechar</p>
     </div>
   )
 }
