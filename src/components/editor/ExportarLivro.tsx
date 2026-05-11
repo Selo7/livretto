@@ -158,7 +158,82 @@ async function paginarParaExport(
 }
 
 // ---------------------------------------------------------------------------
-// Monta o HTML completo para impressão com páginas de tamanho fixo
+// PDF de revisão — A4 fluente, sem diagramação, com aviso visível
+// ---------------------------------------------------------------------------
+function buildReviewHtml(
+  chapters: Chapter[],
+  bookTitle: string,
+  author: string,
+  fontId: string | undefined,
+  customFonts: { name: string; dataUrl: string }[],
+): string {
+  const font = getFontById(fontId)
+  const googleImport = font.google
+    ? `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${font.google}&display=swap">`
+    : ''
+  const customFontFaces = customFonts
+    .map(f => `@font-face{font-family:'${f.name}';src:url('${f.dataUrl}')}`)
+    .join('\n')
+
+  const chaptersHtml = chapters.map((ch, i) => {
+    const content = (ch.content_html || '').replace(/<hr[^>]*>/gi, '<div class="page-break-hint">✂ quebra de página</div>')
+    return `<div class="chapter${i > 0 ? ' chapter-break' : ''}">
+  <h1 class="ch-title">${ch.title || 'Sem título'}</h1>
+  ${content}
+</div>`
+  }).join('\n')
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>[REVISÃO] ${bookTitle}</title>
+${googleImport}
+<style>
+${customFontFaces}
+@page{size:A4;margin:2.5cm 3cm}
+*{box-sizing:border-box}
+body{font-family:${font.css};font-size:11pt;line-height:1.8;color:#1a1a1a;background:#fff}
+.review-notice{
+  background:#fffbeb;border:1.5px solid #f59e0b;border-radius:6px;
+  padding:12px 16px;margin-bottom:2em;
+  font-family:system-ui,sans-serif;font-size:9pt;color:#92400e;
+}
+.review-notice strong{font-size:10pt;display:block;margin-bottom:3px}
+.book-header{margin-bottom:2.5em;padding-bottom:1em;border-bottom:1px solid #ddd}
+.book-header h2{font-size:20pt;font-weight:700;margin:0 0 4px}
+.book-header p{font-size:10pt;color:#666;margin:0}
+.chapter{margin-bottom:2em}
+.chapter-break{break-before:page}
+.ch-title{font-size:16pt;font-weight:700;margin:0 0 1em;padding-bottom:.4em;border-bottom:1px solid #e5e5e5}
+p{margin:0 0 .4em;text-indent:1.5em}
+h1+p,h2+p,h3+p,p:first-child{text-indent:0}
+h2{font-size:13pt;font-weight:600;margin:1em 0 .4em}
+h3{font-size:11pt;font-weight:600;margin:.8em 0 .3em}
+blockquote{margin:.7em 1.5em;border-left:2px solid #c8b89a;padding-left:.75em;font-style:italic;color:#555}
+ul,ol{margin:.5em 0 .5em 1.5em}
+strong{font-weight:700}
+em{font-style:italic}
+.page-break-hint{color:#bbb;font-size:8pt;text-align:center;margin:.5em 0;letter-spacing:.05em}
+</style>
+</head>
+<body>
+<div class="review-notice">
+  <strong>⚠ Versão de revisão — não é o layout final do livro</strong>
+  Este PDF foi gerado para facilitar a revisão do conteúdo. A diagramação real, com paginação, tipografia e capas, estará disponível ao finalizar o livro no Libretto.
+</div>
+<div class="book-header">
+  <h2>${bookTitle}</h2>
+  ${author ? `<p>${author}</p>` : ''}
+</div>
+${chaptersHtml}
+<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),400))</script>
+</body>
+</html>`
+}
+
+// ---------------------------------------------------------------------------
+// PDF final — páginas de tamanho fixo via paginador (igual ao visualizador)
 // ---------------------------------------------------------------------------
 function buildPrintHtml(
   pages: Array<{ html: string; kind: 'content' | 'intercapa'; chapterIdx: number }>,
@@ -166,7 +241,6 @@ function buildPrintHtml(
   format: BookFormat,
   fontId: string | undefined,
   customFonts: { name: string; dataUrl: string }[],
-  isPublished: boolean,
   coverUrl?: string,
   backCoverUrl?: string,
 ): string {
@@ -185,9 +259,6 @@ function buildPrintHtml(
   const customFontFaces = customFonts
     .map(f => `@font-face{font-family:'${f.name}';src:url('${f.dataUrl}')}`)
     .join('\n')
-  const watermarkCss = !isPublished
-    ? `body::before{content:'RASCUNHO';position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:80pt;font-weight:900;color:rgba(0,0,0,0.04);white-space:nowrap;pointer-events:none;z-index:0}`
-    : ''
 
   const coverHtml = coverUrl
     ? `<div style="page:cover-page;break-after:page;width:${dims.wCm};height:${dims.hCm};overflow:hidden;background:#000"><img src="${coverUrl}" style="width:100%;height:100%;object-fit:cover;display:block" alt=""/></div>`
@@ -197,7 +268,7 @@ function buildPrintHtml(
     : ''
 
   const pagesHtml = pages.map(p => {
-    if (p.kind === 'intercapa') return p.html   // já tem break-after:page
+    if (p.kind === 'intercapa') return p.html
     return `<div class="page">${p.html}</div>`
   }).join('\n')
 
@@ -228,7 +299,6 @@ body{background:#fff;font-family:${font.css};font-size:11pt;line-height:1.8;colo
 .page ul,.page ol{margin:.5em 0 .5em 1.5em}
 .page strong{font-weight:700}
 .page em{font-style:italic}
-${watermarkCss}
 </style>
 </head>
 <body>
@@ -307,17 +377,27 @@ export function ExportarLivro() {
     setLoading('pdf')
     try {
       const font = getFontById(activeBook!.body_font)
-      const pages = await paginarParaExport(chapters, activeBook!.format, font.css)
-      const html = buildPrintHtml(
-        pages,
-        activeBook!.title,
-        activeBook!.format,
-        activeBook!.body_font,
-        activeBook!.custom_fonts ?? [],
-        isPublished,
-        activeBook!.cover_url,
-        activeBook!.back_cover_url,
-      )
+      let html: string
+      if (isPublished) {
+        const pages = await paginarParaExport(chapters, activeBook!.format, font.css)
+        html = buildPrintHtml(
+          pages,
+          activeBook!.title,
+          activeBook!.format,
+          activeBook!.body_font,
+          activeBook!.custom_fonts ?? [],
+          activeBook!.cover_url,
+          activeBook!.back_cover_url,
+        )
+      } else {
+        html = buildReviewHtml(
+          chapters,
+          activeBook!.title,
+          activeBook!.author,
+          activeBook!.body_font,
+          activeBook!.custom_fonts ?? [],
+        )
+      }
       const win = window.open('', '_blank')
       if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
       win.document.write(html)
@@ -363,19 +443,25 @@ export function ExportarLivro() {
       {menuOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute top-full right-0 mt-1.5 z-50 bg-background border border-border rounded-xl shadow-xl py-1 w-52 overflow-hidden">
-            {!isPublished && (
-              <p className="px-3 py-1.5 text-[10px] text-amber-600 dark:text-amber-400 border-b border-border">
-                Livro não finalizado — exporta com marca d&apos;água
-              </p>
-            )}
+          <div className="absolute top-full right-0 mt-1.5 z-50 bg-background border border-border rounded-xl shadow-xl py-1 w-60 overflow-hidden">
             <button
               onClick={handlePdf}
               disabled={!!loading}
-              className="flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors w-full text-left disabled:opacity-50"
+              className="flex items-start gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors w-full text-left disabled:opacity-50"
             >
-              <FileText size={14} className="text-muted-foreground shrink-0" />
-              {loading === 'pdf' ? 'Paginando...' : 'Exportar PDF'}
+              <FileText size={14} className="text-muted-foreground shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium leading-tight">
+                  {loading === 'pdf'
+                    ? (isPublished ? 'Paginando...' : 'Gerando...')
+                    : (isPublished ? 'Exportar PDF' : 'Exportar PDF de revisão')}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                  {isPublished
+                    ? 'Layout final com capa e diagramação'
+                    : 'Texto corrido para revisar o conteúdo'}
+                </p>
+              </div>
             </button>
             <button
               onClick={handleEpub}
