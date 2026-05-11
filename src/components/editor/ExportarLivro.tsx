@@ -63,6 +63,12 @@ function intercapaHtml(chapter: Chapter, num: number, fontCss: string, contentH:
 </div>`
 }
 
+function coverPageHtml(src: string): string {
+  return `<div class="cover-page">
+  <img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block" alt=""/>
+</div>`
+}
+
 function buildPdfHtml(
   chapters: Chapter[],
   bookTitle: string,
@@ -70,6 +76,8 @@ function buildPdfHtml(
   fontId: string | undefined,
   customFonts: { name: string; dataUrl: string }[],
   isPublished: boolean,
+  coverUrl?: string,
+  backCoverUrl?: string,
 ): string {
   const fmt = FORMAT[format] ?? FORMAT['14x21']
   const font = getFontById(fontId)
@@ -90,10 +98,13 @@ function buildPdfHtml(
     const chNum = getChapterNum(chapters, i)
     const intercapa = intercapaHtml(ch, chNum, font.css, fmt.contentH)
     const content = ch.content_html || ''
-    const firstPage = i === 0 && !intercapa
+    const firstPage = i === 0 && !intercapa && !coverUrl
 
     return `${intercapa}<div class="chapter-content${firstPage ? '' : ' pb'}">${content}</div>`
   }).join('\n')
+
+  const capa = coverUrl ? coverPageHtml(coverUrl, fmt.size) : ''
+  const contracapa = backCoverUrl ? coverPageHtml(backCoverUrl, fmt.size) : ''
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -104,8 +115,10 @@ ${googleImport}
 <style>
 ${customFontFaces}
 @page{size:${fmt.size};margin:${fmt.margin}}
+@page cover-page{size:${fmt.size};margin:0}
 *{box-sizing:border-box}
 body{margin:0;padding:0;font-family:${font.css};font-size:11pt;line-height:1.8;color:#1a1a1a;background:#fff}
+.cover-page{page:cover-page;break-after:page;width:100%;height:100%;overflow:hidden;background:#000}
 .pb{break-before:page}
 .chapter-content p{margin:0 0 .4em;text-indent:1.5em}
 .chapter-content p:first-child,.chapter-content h1+p,.chapter-content h2+p,.chapter-content h3+p{text-indent:0}
@@ -119,7 +132,7 @@ ${watermarkCss}
 </style>
 </head>
 <body>
-${chaptersHtml}
+${capa}${chaptersHtml}${contracapa}
 <script>window.addEventListener('load',()=>window.print())</script>
 </body>
 </html>`
@@ -200,6 +213,8 @@ export function ExportarLivro() {
         activeBook!.body_font,
         activeBook!.custom_fonts ?? [],
         isPublished,
+        activeBook!.cover_url,
+        activeBook!.back_cover_url,
       )
       const win = window.open('', '_blank')
       if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
