@@ -28,6 +28,7 @@ import { AreaLabel } from '@/components/ui/area-label'
 
 interface MapNodeData extends Record<string, unknown> {
   label: string
+  typeLabel?: string
   description?: string
   nodeType: MapNodeType
   color?: string
@@ -40,11 +41,12 @@ const PALETTE = [
 ]
 
 const NODE_CONFIG: Record<MapNodeType, { label: string; header: string; border: string }> = {
-  personagem: { label: 'Personagem', header: 'bg-blue-500 text-white',   border: '#3b82f6' },
-  lugar:      { label: 'Lugar',      header: 'bg-green-500 text-white',  border: '#22c55e' },
-  evento:     { label: 'Evento',     header: 'bg-orange-500 text-white', border: '#f97316' },
-  objeto:     { label: 'Objeto',     header: 'bg-purple-500 text-white', border: '#a855f7' },
-  capitulo:   { label: 'Capítulo',  header: 'bg-indigo-500 text-white', border: '#6366f1' },
+  personagem:   { label: 'Personagem',  header: 'bg-blue-500 text-white',   border: '#3b82f6' },
+  lugar:        { label: 'Lugar',       header: 'bg-green-500 text-white',  border: '#22c55e' },
+  evento:       { label: 'Evento',      header: 'bg-orange-500 text-white', border: '#f97316' },
+  objeto:       { label: 'Objeto',      header: 'bg-purple-500 text-white', border: '#a855f7' },
+  capitulo:     { label: 'Capítulo',   header: 'bg-indigo-500 text-white', border: '#6366f1' },
+  personalizado:{ label: 'Personalizado', header: 'bg-zinc-500 text-white', border: '#71717a' },
 }
 
 function MapNodeComponent({ data, selected }: NodeProps) {
@@ -61,7 +63,7 @@ function MapNodeComponent({ data, selected }: NodeProps) {
       <Handle type="target" position={Position.Left}   id="l" style={{ background: '#888', width: 8, height: 8 }} />
       <Handle type="source" position={Position.Right}  id="r" style={{ background: '#888', width: 8, height: 8 }} />
       <div className="px-3 py-1 text-xs font-semibold text-white" style={{ backgroundColor: headerColor }}>
-        {cfg.label}
+        {d.typeLabel || cfg.label}
       </div>
       <div className="px-3 py-2">
         <p className="text-sm font-medium leading-tight">{d.label || 'Sem nome'}</p>
@@ -78,7 +80,7 @@ function MapNodeComponent({ data, selected }: NodeProps) {
 const nodeTypes = { mapNode: MapNodeComponent }
 
 function toRFNode(n: StoredMapNode): Node {
-  return { id: n.id, type: 'mapNode', position: { x: n.x, y: n.y }, data: { label: n.label, description: n.description, nodeType: n.nodeType, color: n.color } as MapNodeData }
+  return { id: n.id, type: 'mapNode', position: { x: n.x, y: n.y }, data: { label: n.label, typeLabel: n.typeLabel, description: n.description, nodeType: n.nodeType, color: n.color } as MapNodeData }
 }
 
 function toRFEdge(e: StoredMapEdge): Edge {
@@ -87,7 +89,7 @@ function toRFEdge(e: StoredMapEdge): Edge {
 
 function fromRFNode(n: Node): StoredMapNode {
   const d = n.data as MapNodeData
-  return { id: n.id, nodeType: d.nodeType, label: d.label, description: d.description, color: d.color, x: n.position.x, y: n.position.y }
+  return { id: n.id, nodeType: d.nodeType, label: d.label, typeLabel: d.typeLabel, description: d.description, color: d.color, x: n.position.x, y: n.position.y }
 }
 
 function fromRFEdge(e: Edge): StoredMapEdge {
@@ -353,6 +355,20 @@ export function ModoMapa() {
                 autoFocus
               />
             </div>
+
+            {selectedData.nodeType === 'personalizado' && (
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Rótulo do cabeçalho</label>
+                <input
+                  className="w-full h-7 rounded-md border border-border bg-background text-xs px-2 focus:outline-none focus:ring-1 focus:ring-primary"
+                  value={selectedData.typeLabel ?? ''}
+                  onChange={e => updateSelectedNode({ typeLabel: e.target.value })}
+                  onBlur={() => pushHistory(nodesRef.current, edgesRef.current)}
+                  placeholder="Ex: Símbolo, Conflito, Ideia..."
+                />
+              </div>
+            )}
+
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Tipo</label>
               <select
