@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { X, ChevronLeft, ChevronRight, Rocket } from 'lucide-react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useEditorStore } from '@/lib/store/editorStore'
 import { getFontById } from '@/lib/fonts'
@@ -64,6 +64,8 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
   const [spreadIdx, setSpreadIdx] = useState(0)
   const [animating, setAnimating] = useState(false)
   const [flipDir, setFlipDir] = useState<'next' | 'prev'>('next')
+  const [pageInput, setPageInput] = useState('')
+  const [editingPage, setEditingPage] = useState(false)
   const medidorRef = useRef<HTMLDivElement>(null)
 
   const format = (activeBook?.format ?? '14x21') as BookFormat
@@ -219,9 +221,13 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
 
       if (activeBook?.back_cover_url) pages.push({ kind: 'backCover', src: activeBook.back_cover_url })
 
-      // Capa à direita: blank antes; contagem par
+      // Capa e contracapa em spread solo (cada uma com blank do lado)
       if (pages.length > 0 && pages[0].kind === 'cover') {
-        pages.unshift({ kind: 'blank' })
+        pages.splice(1, 0, { kind: 'blank' })
+      }
+      const backIdx = pages.findIndex(p => p.kind === 'backCover')
+      if (backIdx !== -1 && backIdx % 2 !== 0) {
+        pages.splice(backIdx, 0, { kind: 'blank' })
       }
       if (pages.length % 2 !== 0) pages.push({ kind: 'blank' })
 
@@ -244,19 +250,63 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
   const canNext = spreadIdx < spreads.length - 1
   const canPrev = spreadIdx > 0
 
+  // Mapa número-de-página → índice de spread
+  const pageNumToSpreadIdx = useMemo(() => {
+    const map = new Map<number, number>()
+    allPages.forEach((page, i) => {
+      if (page.kind === 'content') map.set(parseInt(page.num), Math.floor(i / 2))
+    })
+    return map
+  }, [allPages])
+
+  function isSolo(spread: [PageItem, PageItem]) {
+    return spread[0].kind === 'cover' || spread[1].kind === 'cover' ||
+           spread[0].kind === 'backCover' || spread[1].kind === 'backCover'
+  }
+
+  function spreadLabel(spread: [PageItem, PageItem]): string {
+    if (spread[0].kind === 'cover' || spread[1].kind === 'cover') return 'Capa'
+    if (spread[0].kind === 'backCover' || spread[1].kind === 'backCover') return 'Contracapa'
+    const nums = [spread[0], spread[1]]
+      .filter(p => p.kind === 'content')
+      .map(p => (p as Extract<PageItem, { kind: 'content' }>).num)
+    if (nums.length === 0) return '—'
+    if (nums.length === 1) return `Pág. ${nums[0]}`
+    return `Pág. ${nums[0]}–${nums[nums.length - 1]}`
+  }
+
+  function handlePageJump(e: React.FormEvent) {
+    e.preventDefault()
+    const n = parseInt(pageInput)
+    if (!isNaN(n)) {
+      const sIdx = pageNumToSpreadIdx.get(n)
+      if (sIdx !== undefined) setSpreadIdx(sIdx)
+    }
+    setEditingPage(false)
+    setPageInput('')
+  }
+
   const goNext = useCallback(() => {
     if (animating || !canNext) return
+    const nextSpread = spreads[spreadIdx + 1]
+    if (nextSpread && isSolo(nextSpread)) { setSpreadIdx(i => i + 1); return }
+    if (isSolo(spreads[spreadIdx] ?? [{ kind: 'blank' }, { kind: 'blank' }])) { setSpreadIdx(i => i + 1); return }
     setFlipDir('next')
     setAnimating(true)
     setTimeout(() => { setSpreadIdx(i => i + 1); setAnimating(false) }, 660)
-  }, [animating, canNext])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animating, canNext, spreadIdx, spreads])
 
   const goPrev = useCallback(() => {
     if (animating || !canPrev) return
+    const prevSpread = spreads[spreadIdx - 1]
+    if (prevSpread && isSolo(prevSpread)) { setSpreadIdx(i => i - 1); return }
+    if (isSolo(spreads[spreadIdx] ?? [{ kind: 'blank' }, { kind: 'blank' }])) { setSpreadIdx(i => i - 1); return }
     setFlipDir('prev')
     setAnimating(true)
     setTimeout(() => { setSpreadIdx(i => i - 1); setAnimating(false) }, 660)
-  }, [animating, canPrev])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animating, canPrev, spreadIdx, spreads])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -280,7 +330,6 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
   const leafLeft  = flipDir === 'prev' ? 0 : pw + 8
 
   const contentCount = allPages.filter(p => p.kind === 'content').length
-  const progress = `${spreadIdx * 2 + 1} – ${Math.min(spreadIdx * 2 + 2, allPages.length)} de ${allPages.length}`
 
   return (
     <div className="fixed inset-0 z-[9999] bg-neutral-950 flex flex-col items-center justify-center gap-6 select-none">
@@ -305,7 +354,7 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
 
       {/* Livro */}
       <div style={{ perspective: '2500px', perspectiveOrigin: 'center center' }}>
-        <div className="relative flex" style={{ width: pw * 2 + 8, height: ph }}>
+        <div className="relative flex items-center justify-center" style={{ width: pw * 2 + 8, height: ph }}>
 
           <div style={{
             position: 'absolute', bottom: -12, left: '5%', right: '5%', height: 20,
@@ -313,56 +362,121 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
             filter: 'blur(6px)', zIndex: -1,
           }} />
 
-          <PageRenderer item={bgLeft} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side="left" />
+          {isSolo(cur) ? (
+            // Capa ou contracapa — página única centralizada
+            (() => {
+              const soloPage = cur[0].kind === 'cover' || cur[0].kind === 'backCover' ? cur[0] : cur[1]
+              return (
+                <div style={{
+                  width: pw, height: ph, overflow: 'hidden',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+                }}>
+                  <img
+                    src={(soloPage as Extract<PageItem, { kind: 'cover' }>).src}
+                    alt=""
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                </div>
+              )
+            })()
+          ) : (
+            // Spread normal com duas páginas
+            <>
+              <PageRenderer item={bgLeft} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side="left" />
 
-          <div style={{
-            width: 8, height: ph, flexShrink: 0, zIndex: 5,
-            background: 'linear-gradient(to right, #c8b89a, #e8dcc8, #c8b89a)',
-            boxShadow: '0 0 8px rgba(0,0,0,0.3)',
-          }} />
+              <div style={{
+                width: 8, height: ph, flexShrink: 0, zIndex: 5,
+                background: 'linear-gradient(to right, #c8b89a, #e8dcc8, #c8b89a)',
+                boxShadow: '0 0 8px rgba(0,0,0,0.3)',
+              }} />
 
-          <PageRenderer item={bgRight} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side="right" />
+              <PageRenderer item={bgRight} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side="right" />
 
-          {animating && (
-            <div
-              className={`flip-leaf ${flipDir === 'next' ? 'flip-next' : 'flip-prev'}`}
-              style={{ width: pw, height: ph, left: leafLeft }}
-            >
-              <div className="flip-face">
-                <PageRenderer item={leafFront} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side={flipDir === 'next' ? 'right' : 'left'} />
-              </div>
-              <div className="flip-face flip-face-back">
-                <PageRenderer item={leafBack} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side={flipDir === 'next' ? 'left' : 'right'} />
-              </div>
-            </div>
+              {animating && (
+                <div
+                  className={`flip-leaf ${flipDir === 'next' ? 'flip-next' : 'flip-prev'}`}
+                  style={{ width: pw, height: ph, left: leafLeft }}
+                >
+                  <div className="flip-face">
+                    <PageRenderer item={leafFront} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side={flipDir === 'next' ? 'right' : 'left'} />
+                  </div>
+                  <div className="flip-face flip-face-back">
+                    <PageRenderer item={leafBack} pw={pw} ph={ph} margins={margins} scale={scale} fontCss={fontCss} side={flipDir === 'next' ? 'left' : 'right'} />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
 
       {/* Controles */}
-      <div className="flex items-center gap-8 shrink-0">
+      <div className="flex items-center gap-4 shrink-0">
+        <button
+          onClick={() => setSpreadIdx(0)}
+          disabled={!canPrev || animating}
+          className="text-white/40 hover:text-white disabled:opacity-20 transition-colors"
+          title="Ir ao início"
+        >
+          <ChevronsLeft size={18} />
+        </button>
+
         <button
           onClick={goPrev}
           disabled={!canPrev || animating}
-          className="flex items-center gap-2 text-white/60 hover:text-white disabled:opacity-20 transition-colors text-sm"
+          className="flex items-center gap-1.5 text-white/60 hover:text-white disabled:opacity-20 transition-colors text-sm"
         >
           <ChevronLeft size={20} />
           Anterior
         </button>
 
-        <span className="text-xs text-white/30 w-28 text-center">{progress}</span>
+        {/* Indicador / busca por página */}
+        <div className="w-36 text-center">
+          {editingPage ? (
+            <form onSubmit={handlePageJump} className="flex items-center justify-center gap-1">
+              <input
+                autoFocus
+                type="number"
+                min={1}
+                max={contentCount}
+                value={pageInput}
+                onChange={e => setPageInput(e.target.value)}
+                onBlur={() => { setEditingPage(false); setPageInput('') }}
+                placeholder="Nº página"
+                className="w-24 bg-white/10 border border-white/20 rounded px-2 py-0.5 text-xs text-white text-center outline-none focus:border-white/50"
+              />
+            </form>
+          ) : (
+            <button
+              onClick={() => setEditingPage(true)}
+              className="text-xs text-white/30 hover:text-white/60 transition-colors"
+              title="Clique para ir a uma página"
+            >
+              {spreadLabel(cur)} · {contentCount} págs.
+            </button>
+          )}
+        </div>
 
         <button
           onClick={goNext}
           disabled={!canNext || animating}
-          className="flex items-center gap-2 text-white/60 hover:text-white disabled:opacity-20 transition-colors text-sm"
+          className="flex items-center gap-1.5 text-white/60 hover:text-white disabled:opacity-20 transition-colors text-sm"
         >
           Próxima
           <ChevronRight size={20} />
         </button>
+
+        <button
+          onClick={() => setSpreadIdx(spreads.length - 1)}
+          disabled={!canNext || animating}
+          className="text-white/40 hover:text-white disabled:opacity-20 transition-colors"
+          title="Ir ao fim"
+        >
+          <ChevronsRight size={18} />
+        </button>
       </div>
 
-      <p className="text-[10px] text-white/20">Use ← → para navegar · Esc para fechar</p>
+      <p className="text-[10px] text-white/20">Use ← → para navegar · clique em &ldquo;Pág.&rdquo; para buscar · Esc para fechar</p>
     </div>
   )
 }
