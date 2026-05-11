@@ -109,7 +109,7 @@ export async function paginarParaExport(
   const margins = FORMAT_MARGINS[format]
   const larguraUtil = dims.w - margins.left - margins.right
   const alturaUtil  = dims.h - margins.top  - margins.bottom
-  const SAFETY      = 64
+  const SAFETY      = 100
   const pageLimit   = alturaUtil - SAFETY
 
   // Mapa de notas de rodapé globais
