@@ -159,6 +159,16 @@ export function VisualizadorFlip({ onClose, onContinuar }: Props) {
           continue
         }
 
+        // HR de conteúdo = quebra de página manual
+        if (el.tagName === 'HR') {
+          if (htmlAtual) finalizarPagina(htmlAtual)
+          htmlAtual = ''
+          medidor.innerHTML = ''
+          lastElHtml = ''
+          lastElTag = ''
+          continue
+        }
+
         const clone = el.cloneNode(true) as HTMLElement
         medidor.appendChild(clone)
 

@@ -211,6 +211,29 @@
 .ProseMirror h3 { font-size: 1.1em;  font-weight: 600; line-height: 1.4; margin: 0.6em 0 0.3em; }
 .ProseMirror :is(h1, h2, h3):first-child { margin-top: 0; }
 
+/* HR no editor = marcador de quebra de página (não renderiza como linha) */
+.ProseMirror hr {
+  border: none;
+  margin: 0.4em 0;
+  height: 1.6em;
+  position: relative;
+  background: transparent;
+}
+.ProseMirror hr::after {
+  content: '— Quebra de página —';
+  display: block;
+  text-align: center;
+  font-size: 0.65em;
+  color: oklch(0.7 0 0);
+  letter-spacing: 0.08em;
+  border-top: 1px dashed oklch(0.8 0 0);
+  padding-top: 0.4em;
+}
+.dark .ProseMirror hr::after {
+  color: oklch(0.5 0 0);
+  border-top-color: oklch(0.35 0 0);
+}
+
 .book-page-content blockquote {
   margin: 0.7em 1.2em;
   padding-left: 0.75em;

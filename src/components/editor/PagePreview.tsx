@@ -202,6 +202,18 @@ export function PagePreview({ content, width = 420, cursorBlockIndex = 0, onBloc
           continue
         }
 
+        // HR de conteúdo = quebra de página manual
+        if (el.tagName === 'HR') {
+          if (htmlAtual) finalizarPagina(htmlAtual, startBlock, blockNum - 1)
+          htmlAtual = ''
+          medidor.innerHTML = ''
+          startBlock = blockNum + 1
+          lastElHtml = ''
+          lastElTag = ''
+          blockNum++
+          continue
+        }
+
         // Adiciona o elemento ao medidor e mede a altura real resultante
         const clone = el.cloneNode(true) as HTMLElement
         medidor.appendChild(clone)
