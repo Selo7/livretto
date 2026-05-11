@@ -295,7 +295,7 @@ export function buildPrintHtml(
 
     const contentHtml = p.html.replace(
       /\[(\d+)\]/g,
-      '<sup style="color:#c8720a;font-size:.72em;vertical-align:super;font-weight:600">[$1]</sup>'
+      '<sup class="fn-ref">[$1]</sup>'
     )
 
     const fnHtml = p.footnotes?.length
@@ -306,7 +306,8 @@ export function buildPrintHtml(
 
     const pgNum = p.pageNum != null ? `<div class="pg-num">${p.pageNum}</div>` : ''
 
-    return `<div class="page">${contentHtml}${fnHtml}${pgNum}</div>`
+    // Conteúdo envolto em .book-page-content — IDÊNTICO ao que o paginador mede
+    return `<div class="page"><div class="book-page-content">${contentHtml}</div>${fnHtml}${pgNum}</div>`
   }).join('\n')
 
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${bookTitle}</title>${googleImport}
@@ -315,29 +316,40 @@ ${customFontFaces}
 @page{size:${dims.wCm} ${dims.hCm};margin:0}
 @page cover-pg{size:${dims.wCm} ${dims.hCm};margin:0}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#fff;font-family:${font.css};font-size:11pt;line-height:1.8;color:#1a1a1a}
+body{background:#fff;font-family:${font.css}}
 .page{
   width:${dims.wCm};height:${dims.hCm};
   padding:${mTop} ${mRight} ${mBott} ${mLeft};
-  break-after:page;position:relative;
+  break-after:page;overflow:hidden;position:relative;
 }
-.page p{margin-bottom:.45em;text-indent:1.5em}
-.page p:first-child,.page h1+p,.page h2+p,.page h3+p{text-indent:0}
-.page h1{font-size:18pt;font-weight:700;padding:.3em 0 .5em;text-indent:0}
-.page h2{font-size:14pt;font-weight:600;padding:1em 0 .4em;text-indent:0}
-.page h3{font-size:12pt;font-weight:600;padding:.8em 0 .3em;text-indent:0}
-.page blockquote{margin:.7em 1.2em;padding-left:.75em;border-left:2px solid #c8b89a;font-style:italic;color:#555}
-.page ul,.page ol{margin:.5em 0 .5em 1.5em}
-.page strong{font-weight:700}.page em{font-style:italic}
-.page img{max-width:100%;height:auto}
-.pg-num{position:absolute;bottom:0;left:0;right:0;text-align:center;padding-bottom:${px2cm(Math.floor(margins.bottom/3))};font-size:9pt;color:#888}
+/* CSS idêntico ao globals.css .book-page-content — mesmos valores que o paginador vê */
+.book-page-content{font-size:11px;line-height:1.8;font-family:${font.css};color:#1a1a1a}
+.book-page-content p{margin-bottom:0.55em;text-align:justify;text-indent:1.5em}
+.book-page-content p:first-child,
+.book-page-content h1+p,
+.book-page-content h2+p,
+.book-page-content h3+p{text-indent:0}
+.book-page-content p:empty{min-height:1.8em;display:block}
+.book-page-content h1{font-size:1.8em;font-weight:700;line-height:1.2;padding-top:1.5em;margin:0 0 0.5em}
+.book-page-content h2{font-size:1.25em;font-weight:600;line-height:1.3;padding-top:1.2em;margin:0 0 0.5em;letter-spacing:0.01em}
+.book-page-content h3{font-size:1.05em;font-weight:600;line-height:1.4;padding-top:0.8em;margin:0 0 0.4em}
+.book-page-content :is(h1,h2,h3):first-child{padding-top:0.3em}
+.book-page-content blockquote{margin:0.7em 1.2em;padding-left:0.75em;border-left:2px solid #c8b89a;font-style:italic;color:#555}
+.book-page-content ul{margin:0.4em 0;padding-left:1.4em;list-style-type:disc}
+.book-page-content ol{margin:0.4em 0;padding-left:1.4em;list-style-type:decimal}
+.book-page-content li{margin-bottom:0.2em}
+.book-page-content strong{font-weight:700}
+.book-page-content em{font-style:italic}
+.book-page-content img{max-width:100%;height:auto}
+.fn-ref{color:#c8720a;font-size:0.72em;vertical-align:super;font-weight:600}
+.pg-num{position:absolute;bottom:0;left:0;right:0;text-align:center;padding-bottom:${px2cm(Math.floor(margins.bottom/3))};font-size:9px;color:#888}
 .fn-block{position:absolute;bottom:${mBott};left:${mLeft};right:${mRight}}
-.fn-rule{border-top:.5pt solid #bbb;margin-bottom:4pt}
-.fn-line{display:flex;gap:4pt;font-size:8.5pt;line-height:1.5;color:#444;margin-bottom:2pt}
+.fn-rule{border-top:0.5pt solid #bbb;margin-bottom:4pt}
+.fn-line{display:flex;gap:4pt;font-size:9px;line-height:1.5;color:#444;margin-bottom:2pt}
 .fn-num{flex-shrink:0;font-weight:600}
 </style></head><body>
 ${coverHtml}${pagesHtml}${backCoverHtml}
-<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),400))</script>
+<script>document.fonts.ready.then(()=>window.print())</script>
 </body></html>`
 }
 
