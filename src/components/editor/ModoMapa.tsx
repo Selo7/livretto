@@ -48,7 +48,10 @@ function MapNodeComponent({ data, selected }: NodeProps) {
       className="rounded-lg border-2 shadow-md bg-white dark:bg-zinc-900 min-w-32 max-w-48 overflow-hidden"
       style={{ borderColor: selected ? '#6366f1' : cfg.border }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: '#888', width: 8, height: 8 }} />
+      <Handle type="target" position={Position.Top}    id="t" style={{ background: '#888', width: 8, height: 8 }} />
+      <Handle type="source" position={Position.Bottom} id="b" style={{ background: '#888', width: 8, height: 8 }} />
+      <Handle type="target" position={Position.Left}   id="l" style={{ background: '#888', width: 8, height: 8 }} />
+      <Handle type="source" position={Position.Right}  id="r" style={{ background: '#888', width: 8, height: 8 }} />
       <div className={cn('px-3 py-1 text-xs font-semibold', cfg.header)}>
         {cfg.label}
       </div>
@@ -60,7 +63,6 @@ function MapNodeComponent({ data, selected }: NodeProps) {
           </p>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} style={{ background: '#888', width: 8, height: 8 }} />
     </div>
   )
 }
