@@ -94,6 +94,7 @@ export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, on
   const activeSize = rawSize.replace('pt', '')
 
   function handleFontChange(fontId: string) {
+    if (!editor) return
     const font = BOOK_FONTS.find(f => f.id === fontId)
     if (!font) return
     if (fontId === defaultFontId) {
@@ -104,6 +105,7 @@ export function Toolbar({ editor, isDictating, onToggleDictation, onImportar, on
   }
 
   function handleSizeChange(size: string) {
+    if (!editor) return
     if (size === '11') {
       editor.chain().focus().unsetFontSize().run()
     } else {
